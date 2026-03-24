@@ -1,0 +1,1182 @@
+<?php
+/**
+ * Admin-Bereich
+ */
+
+$sessions = get_sessions($event['id']);
+$members = get_members($event['id'], false); // Alle inkl. inaktive
+$activeMembers = array_filter($members, fn($m) => $m['active']);
+$penaltyTypes = get_penalty_types($event['id']);
+$allPenalties = get_penalties_for_event($event['id']);
+$totalPenalty = get_event_penalty_total($event['id']);
+$penaltyByType = get_penalty_stats_by_type($event['id']);
+$penaltyByMember = get_penalty_stats_by_member($event['id']);
+
+$adminToken = $event['admin_token'];
+$tab = $_GET['tab'] ?? 'overview';
+
+$pageTitle = 'Admin – ' . $event['name'];
+require __DIR__ . '/partials/header.php';
+?>
+
+<!-- Admin-Tabs -->
+<div class="mb-6 flex flex-wrap gap-2 border-b pb-3">
+    <?php
+    $tabs = [
+        'overview' => '📊 Übersicht',
+        'members' => '👥 Teilnehmer',
+        'sessions' => '📅 Termine',
+        'attendance' => '✅ Anwesenheit',
+        'penalty_types' => '📋 Strafenkatalog',
+        'penalties' => '💰 Strafen',
+        'penalty_stats' => '📊 Strafkasse',
+        'audit' => '📝 Audit-Log',
+        'settings' => '⚙️ Einstellungen',
+    ];
+    foreach ($tabs as $key => $label):
+        $active = $tab === $key;
+        $url = 'index.php?event=' . e($event['public_token']) . '&admin=' . e($adminToken) . '&tab=' . $key;
+    ?>
+    <a href="<?= $url ?>"
+       class="px-3 py-2 rounded-lg text-sm font-medium transition <?= $active ? 'bg-red-600 text-white' : 'bg-gray-100 text-gray-600 hover:bg-gray-200' ?>">
+        <?= $label ?>
+    </a>
+    <?php endforeach; ?>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Übersicht
+// ══════════════════════════════════════════════════════════════
+if ($tab === 'overview'):
+    $memberStats = get_member_stats($event['id']);
+?>
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+    <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+        <div class="text-2xl font-bold text-gray-900"><?= count($activeMembers) ?></div>
+        <div class="text-gray-500 text-sm">Aktive Teilnehmer</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+        <div class="text-2xl font-bold text-gray-900"><?= count($sessions) ?></div>
+        <div class="text-gray-500 text-sm">Termine</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+        <div class="text-2xl font-bold text-gray-900"><?= count($allPenalties) ?></div>
+        <div class="text-gray-500 text-sm">Strafen vergeben</div>
+    </div>
+    <div class="bg-white rounded-xl shadow-sm border p-4 text-center">
+        <div class="text-2xl font-bold text-red-600"><?= format_currency($totalPenalty) ?></div>
+        <div class="text-gray-500 text-sm">Strafkasse</div>
+    </div>
+</div>
+
+<div class="bg-white rounded-xl shadow-sm border p-5 mb-6">
+    <h3 class="font-bold text-gray-800 mb-2">🔗 Links</h3>
+    <div class="space-y-3">
+        <div>
+            <label class="text-xs font-semibold text-gray-500">Öffentliche URL (für Teilnehmer):</label>
+            <input type="text" readonly value="<?= e(get_base_url() . '/index.php?event=' . $event['public_token']) ?>"
+                   class="w-full text-xs p-2 bg-gray-50 border rounded font-mono mt-1" onclick="this.select()">
+        </div>
+        <div>
+            <label class="text-xs font-semibold text-gray-500">Admin-URL:</label>
+            <input type="text" readonly value="<?= e(get_base_url() . '/index.php?event=' . $event['public_token'] . '&admin=' . $adminToken) ?>"
+                   class="w-full text-xs p-2 bg-gray-50 border rounded font-mono mt-1" onclick="this.select()">
+        </div>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Teilnehmer
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'members'):
+?>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <!-- Teilnehmer hinzufügen -->
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Teilnehmer hinzufügen</h3>
+            <form onsubmit="return addMember(event)">
+                <div class="space-y-3">
+                    <input type="text" id="memberName" placeholder="Name" required
+                           class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <input type="text" id="memberRole" placeholder="Funktion (optional)"
+                           class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
+                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                        Hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Bulk-Import</h3>
+            <form onsubmit="return bulkImportMembers(event)">
+                <textarea id="bulkNames" rows="6" placeholder="Ein Name pro Zeile..."
+                          class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-3"></textarea>
+                <button type="submit" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
+                    Importieren
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- Teilnehmerliste -->
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-5 py-4 border-b">
+                <h3 class="font-bold text-gray-800"><?= count($members) ?> Teilnehmer</h3>
+            </div>
+            <div class="divide-y">
+                <?php foreach ($members as $m): ?>
+                <div class="px-5 py-3 flex items-center justify-between" id="member-row-<?= $m['id'] ?>">
+                    <div>
+                        <span class="font-medium <?= $m['active'] ? 'text-gray-800' : 'text-gray-400 line-through' ?>">
+                            <?= e($m['name']) ?>
+                        </span>
+                        <?php if ($m['role']): ?>
+                            <span class="text-xs text-gray-400 ml-1">(<?= e($m['role']) ?>)</span>
+                        <?php endif; ?>
+                        <?php if (!$m['active']): ?>
+                            <span class="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full ml-1">Inaktiv</span>
+                        <?php endif; ?>
+                    </div>
+                    <button onclick="editMember(<?= $m['id'] ?>, '<?= e(addslashes($m['name'])) ?>', '<?= e(addslashes($m['role'])) ?>', <?= $m['active'] ? 'true' : 'false' ?>)"
+                            class="text-gray-400 hover:text-red-600 text-sm transition">
+                        ✏️ Bearbeiten
+                    </button>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Bearbeiten-Modal -->
+<div id="editMemberModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+        <h3 class="font-bold text-lg mb-4">Teilnehmer bearbeiten</h3>
+        <form onsubmit="return saveMember(event)">
+            <input type="hidden" id="editMemberId">
+            <div class="space-y-3 mb-4">
+                <input type="text" id="editMemberName" placeholder="Name" required
+                       class="w-full border rounded-lg p-2 text-sm">
+                <input type="text" id="editMemberRole" placeholder="Funktion"
+                       class="w-full border rounded-lg p-2 text-sm">
+                <label class="flex items-center gap-2 text-sm">
+                    <input type="checkbox" id="editMemberActive" class="rounded">
+                    <span>Aktiv</span>
+                </label>
+            </div>
+            <div class="flex gap-2">
+                <button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">Speichern</button>
+                <button type="button" onclick="document.getElementById('editMemberModal').classList.add('hidden')"
+                        class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300">Abbrechen</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Termine
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'sessions'):
+?>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1 space-y-6">
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Termin hinzufügen</h3>
+            <form onsubmit="return addSession(event)">
+                <div class="space-y-3">
+                    <input type="date" id="sessionDate" required class="w-full border rounded-lg p-2 text-sm">
+                    <input type="time" id="sessionTime" required class="w-full border rounded-lg p-2 text-sm">
+                    <input type="text" id="sessionComment" placeholder="Kommentar (optional)" class="w-full border rounded-lg p-2 text-sm">
+                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                        Hinzufügen
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Bulk-Import</h3>
+            <p class="text-xs text-gray-400 mb-2">Format: DD.MM.YYYY HH:MM Kommentar</p>
+            <form onsubmit="return bulkImportSessions(event)">
+                <textarea id="bulkSessions" rows="6" placeholder="01.01.2026 18:30 Kommentar..."
+                          class="w-full border rounded-lg p-2 text-sm mb-3 font-mono"></textarea>
+                <button type="submit" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
+                    Importieren
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-5 py-4 border-b">
+                <h3 class="font-bold text-gray-800"><?= count($sessions) ?> Termine</h3>
+            </div>
+            <div class="divide-y max-h-screen overflow-y-auto">
+                <?php foreach ($sessions as $s):
+                    $isPast = $s['session_date'] < date('Y-m-d');
+                ?>
+                <div class="px-5 py-3 flex items-center justify-between <?= $isPast ? 'bg-gray-50 text-gray-400' : '' ?>">
+                    <div>
+                        <span class="font-medium"><?= format_weekday($s['session_date']) ?>, <?= format_date($s['session_date']) ?></span>
+                        <span class="text-sm ml-2"><?= format_time($s['session_time']) ?> Uhr</span>
+                        <?php if ($s['comment']): ?>
+                            <span class="text-xs text-gray-400 ml-2"><?= e($s['comment']) ?></span>
+                        <?php endif; ?>
+                    </div>
+                    <div class="flex gap-2">
+                        <a href="index.php?event=<?= e($event['public_token']) ?>&admin=<?= e($adminToken) ?>&tab=attendance&session_id=<?= $s['id'] ?>"
+                           class="text-blue-500 hover:text-blue-700 text-xs font-medium">✅ Anwesenheit</a>
+                        <button onclick="deleteSession(<?= $s['id'] ?>)" class="text-red-400 hover:text-red-600 text-xs">🗑️</button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Anwesenheit
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'attendance'):
+    $sessionDuration = (int)($event['session_duration_hours'] ?? 3);
+
+    // Alle Anwesenheitsdaten vorladen
+    $allAttData = [];
+    foreach ($sessions as $s) {
+        $sAtt = get_attendance_for_session($s['id']);
+        $lookup = [];
+        foreach ($sAtt as $a) { $lookup[$a['member_id']] = $a; }
+        $allAttData[$s['id']] = [
+            'present' => count(array_filter($sAtt, fn($a) => $a['status'] === 'present')),
+            'excused' => count(array_filter($sAtt, fn($a) => $a['status'] === 'excused')),
+            'absent' => count(array_filter($sAtt, fn($a) => $a['status'] === 'absent')),
+            'members' => $lookup,
+        ];
+    }
+
+    // Auto-expand: nächster Termin oder per URL-Parameter
+    $autoExpandId = isset($_GET['session_id']) ? (int)$_GET['session_id'] : 0;
+    if (!$autoExpandId) {
+        $nextS = get_next_session($sessions, $sessionDuration);
+        $autoExpandId = $nextS ? $nextS['id'] : 0;
+    }
+?>
+
+<!-- Terminliste mit aufklappbaren Anwesenheitsformularen -->
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+    <div class="px-5 py-4 border-b" style="background-color: #e5e7eb;">
+        <div class="flex items-center justify-between">
+            <h3 class="font-bold text-gray-700">✅ Anwesenheit verwalten</h3>
+            <span class="text-xs text-gray-500"><?= count($activeMembers) ?> Teilnehmer · <?= count($sessions) ?> Termine</span>
+        </div>
+    </div>
+
+    <?php
+    $nextFound = false;
+    foreach ($sessions as $s):
+        $ended = is_session_ended($s, $sessionDuration);
+        $isToday = $s['session_date'] === date('Y-m-d');
+        $isNext = false;
+        if (!$nextFound && !$ended) {
+            $isNext = true;
+            $nextFound = true;
+        }
+
+        $sData = $allAttData[$s['id']];
+        $totalMarked = $sData['present'] + $sData['excused'] + $sData['absent'];
+        $isExpanded = ($s['id'] === $autoExpandId);
+
+        // Zeilen-Style
+        if ($isNext) {
+            $rowStyle = 'background-color: #fed7aa; border-left: 5px solid #ea580c; font-weight: 600;';
+        } elseif ($isToday && !$ended) {
+            $rowStyle = 'background-color: #fee2e2; font-weight: 600;';
+        } elseif ($ended) {
+            $rowStyle = 'background-color: #f3f4f6; color: #9ca3af;';
+        } else {
+            $rowStyle = '';
+        }
+    ?>
+    <!-- Session-Zeile -->
+    <div style="<?= $rowStyle ?>border-bottom: 1px solid #e5e7eb; cursor: pointer;"
+         onclick="toggleAttendance(<?= $s['id'] ?>)" id="session-header-<?= $s['id'] ?>">
+        <div class="px-5 py-3 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
+            <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm" id="expand-icon-<?= $s['id'] ?>"><?= $isExpanded ? '▼' : '▶' ?></span>
+                <span class="font-medium text-sm">
+                    <?= format_weekday($s['session_date']) ?>, <?= format_date($s['session_date']) ?> – <?= format_time($s['session_time']) ?>
+                </span>
+                <?php if ($s['comment']): ?>
+                    <span class="text-xs" style="color: <?= $ended ? '#9ca3af' : '#6b7280' ?>;">(<?= e($s['comment']) ?>)</span>
+                <?php endif; ?>
+                <?php if ($isToday && !$ended): ?>
+                    <span style="font-size: 10px; background-color: #dc2626; color: white; padding: 1px 6px; border-radius: 9999px;">HEUTE</span>
+                <?php endif; ?>
+                <?php if ($isNext && !$isToday): ?>
+                    <span style="font-size: 10px; background-color: #ea580c; color: white; padding: 1px 6px; border-radius: 9999px;">NÄCHSTER</span>
+                <?php endif; ?>
+            </div>
+            <div class="flex items-center gap-3 text-xs">
+                <?php if ($totalMarked > 0): ?>
+                    <span class="text-green-600 font-semibold">✅ <?= $sData['present'] ?></span>
+                    <span class="text-yellow-600 font-semibold">🟡 <?= $sData['excused'] ?></span>
+                    <span class="text-red-600 font-semibold">❌ <?= $sData['absent'] ?></span>
+                <?php else: ?>
+                    <span class="text-gray-400">Noch nicht erfasst</span>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Aufklappbares Anwesenheitsformular -->
+    <div id="att-panel-<?= $s['id'] ?>" class="<?= $isExpanded ? '' : 'hidden' ?>" style="border-bottom: 2px solid #dc2626; background-color: #fafafa;">
+        <div class="px-5 py-3 flex flex-wrap items-center justify-between gap-2 border-b bg-gray-50">
+            <span class="text-sm font-semibold text-gray-600">
+                <?= format_weekday($s['session_date']) ?>, <?= format_date($s['session_date']) ?>
+            </span>
+            <div class="flex gap-2">
+                <button type="button" onclick="event.stopPropagation(); setAllAttendanceFor(<?= $s['id'] ?>, 'present')"
+                        class="bg-green-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-green-600 transition">Alle anwesend</button>
+                <button type="button" onclick="event.stopPropagation(); setAllAttendanceFor(<?= $s['id'] ?>, 'absent')"
+                        class="bg-red-500 text-white px-3 py-1 rounded-lg text-xs font-semibold hover:bg-red-600 transition">Alle fehlend</button>
+            </div>
+        </div>
+        <div class="divide-y">
+            <?php foreach ($activeMembers as $m):
+                $mAtt = $sData['members'][$m['id']] ?? null;
+                $mStatus = $mAtt['status'] ?? '';
+                $excusedBy = $mAtt['excused_by'] ?? '';
+            ?>
+            <div class="px-5 py-2.5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2" id="att-row-<?= $s['id'] ?>-<?= $m['id'] ?>">
+                <div class="flex items-center gap-2 flex-wrap">
+                    <span class="font-medium text-gray-800 text-sm"><?= e($m['name']) ?></span>
+                    <?php if ($mAtt && $mStatus === 'excused' && $mAtt['excused_at']): ?>
+                        <?php if ($excusedBy === 'member'): ?>
+                            <span class="text-xs text-yellow-600">🟡 selbst entsch.</span>
+                        <?php else: ?>
+                            <span class="text-xs text-blue-500">🔵 durch Admin</span>
+                        <?php endif; ?>
+                    <?php endif; ?>
+                    <span class="att-saved-indicator hidden text-xs text-green-500" id="att-saved-<?= $s['id'] ?>-<?= $m['id'] ?>">✓ gespeichert</span>
+                </div>
+                <div class="flex gap-1 att-group" data-session="<?= $s['id'] ?>" data-member="<?= $m['id'] ?>">
+                    <input type="hidden" id="att-val-<?= $s['id'] ?>-<?= $m['id'] ?>" value="<?= e($mStatus) ?>">
+                    <?php foreach (['present' => ['✅', 'Anwesend', 'bg-green-600', 'border-green-600'], 'excused' => ['🟡', 'Entsch.', 'bg-yellow-500', 'border-yellow-500'], 'absent' => ['❌', 'Fehlend', 'bg-red-600', 'border-red-600']] as $val => [$icon, $label, $bgActive, $borderActive]):
+                        $isActive = $mStatus === $val;
+                    ?>
+                    <button type="button" data-status="<?= $val ?>"
+                            onclick="event.stopPropagation(); setAttFor(<?= $s['id'] ?>, <?= $m['id'] ?>, '<?= $val ?>')"
+                            class="att-btn px-2 py-1 rounded text-xs font-medium border transition
+                            <?= $isActive ? "$bgActive text-white $borderActive" : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50' ?>">
+                        <?= $icon ?> <span class="hidden sm:inline"><?= $label ?></span>
+                    </button>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endforeach; ?>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Strafenkatalog
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'penalty_types'):
+?>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Straftyp hinzufügen</h3>
+            <form onsubmit="return addPenaltyType(event)">
+                <div class="space-y-3">
+                    <input type="text" id="ptDescription" placeholder="Beschreibung" required class="w-full border rounded-lg p-2 text-sm">
+                    <input type="number" id="ptAmount" placeholder="Betrag (€)" step="0.50" min="0.50" required class="w-full border rounded-lg p-2 text-sm">
+                    <div>
+                        <label class="text-xs text-gray-500">Aktiv ab (optional):</label>
+                        <input type="date" id="ptActiveFrom" class="w-full border rounded-lg p-2 text-sm">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Sortierung (niedrig = weiter oben):</label>
+                        <input type="number" id="ptSortOrder" placeholder="0" value="0" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Hinzufügen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-5 py-4 border-b flex items-center justify-between">
+                <h3 class="font-bold text-gray-800">Strafenkatalog</h3>
+                <span class="text-xs text-gray-300" title="Admin-View Version">v<?= APP_VERSION ?></span>
+            </div>
+            <div class="divide-y">
+                <?php if (empty($penaltyTypes)): ?>
+                    <div class="px-5 py-8 text-center text-gray-400">Keine Straftypen angelegt.</div>
+                <?php endif; ?>
+                <?php foreach ($penaltyTypes as $pt): ?>
+                <div class="px-5 py-3" id="pt-row-<?= $pt['id'] ?>">
+                    <div class="flex flex-col sm:flex-row sm:items-center gap-2">
+                        <!-- Info -->
+                        <div class="flex-1 min-w-0" id="pt-display-<?= $pt['id'] ?>">
+                            <div class="flex items-center gap-2 flex-wrap">
+                                <span class="inline-flex items-center justify-center bg-gray-100 text-gray-500 text-xs font-mono rounded w-8 h-6"
+                                      title="Sortierung"><?= (int)$pt['sort_order'] ?></span>
+                                <span class="font-medium <?= $pt['active'] ? 'text-gray-800' : 'text-gray-400' ?>"><?= e($pt['description']) ?></span>
+                                <span class="text-red-600 font-semibold"><?= format_currency($pt['amount']) ?></span>
+                                <?php if ($pt['active_from']): ?>
+                                    <span class="text-xs text-gray-400">(ab <?= format_date($pt['active_from']) ?>)</span>
+                                <?php endif; ?>
+                                <?php if (!$pt['active']): ?>
+                                    <span class="text-xs bg-gray-200 text-gray-500 px-2 py-0.5 rounded-full">Inaktiv</span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        <!-- Buttons -->
+                        <div class="flex gap-2 shrink-0" id="pt-buttons-<?= $pt['id'] ?>">
+                            <button onclick="editPenaltyType(<?= $pt['id'] ?>)"
+                                    class="text-gray-400 hover:text-blue-600 text-xs transition">✏️ Bearbeiten</button>
+                            <button onclick="deletePenaltyType(<?= $pt['id'] ?>)"
+                                    class="text-gray-400 hover:text-red-600 text-xs transition">🗑️</button>
+                        </div>
+                    </div>
+                    <!-- Inline-Edit (hidden by default) -->
+                    <div class="hidden mt-3 bg-gray-50 rounded-lg p-3" id="pt-edit-<?= $pt['id'] ?>">
+                        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-2">
+                            <div>
+                                <label class="text-xs text-gray-500">Sortierung:</label>
+                                <input type="number" id="pt-sort-<?= $pt['id'] ?>" value="<?= (int)$pt['sort_order'] ?>"
+                                       class="w-full border rounded-lg p-1.5 text-sm mt-0.5">
+                            </div>
+                            <div class="col-span-2 sm:col-span-1">
+                                <label class="text-xs text-gray-500">Betrag (€):</label>
+                                <input type="number" id="pt-amount-<?= $pt['id'] ?>" value="<?= $pt['amount'] ?>" step="0.50" min="0.50"
+                                       class="w-full border rounded-lg p-1.5 text-sm mt-0.5">
+                            </div>
+                            <div>
+                                <label class="text-xs text-gray-500">Aktiv ab:</label>
+                                <input type="date" id="pt-from-<?= $pt['id'] ?>" value="<?= $pt['active_from'] ?? '' ?>"
+                                       class="w-full border rounded-lg p-1.5 text-sm mt-0.5">
+                            </div>
+                            <div class="flex items-end">
+                                <label class="flex items-center gap-1.5 text-sm cursor-pointer">
+                                    <input type="checkbox" id="pt-active-<?= $pt['id'] ?>" <?= $pt['active'] ? 'checked' : '' ?> class="rounded">
+                                    Aktiv
+                                </label>
+                            </div>
+                        </div>
+                        <div class="mb-2">
+                            <label class="text-xs text-gray-500">Beschreibung:</label>
+                            <input type="text" id="pt-desc-<?= $pt['id'] ?>" value="<?= e($pt['description']) ?>"
+                                   class="w-full border rounded-lg p-1.5 text-sm mt-0.5">
+                        </div>
+                        <div class="flex gap-2">
+                            <button onclick="savePenaltyType(<?= $pt['id'] ?>)"
+                                    class="bg-red-600 text-white px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-red-700 transition">
+                                💾 Speichern
+                            </button>
+                            <button onclick="cancelEditPenaltyType(<?= $pt['id'] ?>)"
+                                    class="bg-gray-200 text-gray-600 px-4 py-1.5 rounded-lg text-xs font-semibold hover:bg-gray-300 transition">
+                                Abbrechen
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Strafen zuweisen
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'penalties'):
+?>
+<div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+    <div class="lg:col-span-1">
+        <div class="bg-white rounded-xl shadow-sm border p-5">
+            <h3 class="font-bold text-gray-800 mb-4">Strafe zuweisen</h3>
+            <form onsubmit="return addPenalty(event)">
+                <div class="space-y-3">
+                    <select id="penMember" required class="w-full border rounded-lg p-2 text-sm">
+                        <option value="">– Teilnehmer –</option>
+                        <?php foreach ($activeMembers as $m): ?>
+                        <option value="<?= $m['id'] ?>"><?= e($m['name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                    <select id="penType" required class="w-full border rounded-lg p-2 text-sm">
+                        <option value="">– Straftyp –</option>
+                        <?php foreach ($penaltyTypes as $pt): ?>
+                        <?php if ($pt['active']): ?>
+                        <option value="<?= $pt['id'] ?>"><?= e($pt['description']) ?> (<?= format_currency($pt['amount']) ?>)</option>
+                        <?php endif; ?>
+                        <?php endforeach; ?>
+                    </select>
+                    <input type="date" id="penDate" value="<?= date('Y-m-d') ?>" class="w-full border rounded-lg p-2 text-sm">
+                    <input type="text" id="penComment" placeholder="Kommentar (optional)" class="w-full border rounded-lg p-2 text-sm">
+                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Strafe zuweisen</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="lg:col-span-2">
+        <div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+            <div class="px-5 py-4 border-b flex justify-between items-center">
+                <h3 class="font-bold text-gray-800">Zugewiesene Strafen</h3>
+                <span class="text-red-600 font-bold"><?= format_currency($totalPenalty) ?></span>
+            </div>
+            <div class="divide-y max-h-96 overflow-y-auto">
+                <?php if (empty($allPenalties)): ?>
+                    <div class="px-5 py-8 text-center text-gray-400">Noch keine Strafen vergeben.</div>
+                <?php endif; ?>
+                <?php foreach ($allPenalties as $p): ?>
+                <div class="px-5 py-3 flex items-center justify-between">
+                    <div>
+                        <span class="font-medium text-gray-800"><?= e($p['member_name']) ?></span>
+                        <span class="text-sm text-gray-500 ml-2"><?= e($p['type_description']) ?></span>
+                        <span class="text-red-600 font-semibold ml-2"><?= format_currency($p['amount']) ?></span>
+                        <div class="text-xs text-gray-400"><?= format_date($p['penalty_date']) ?><?= $p['comment'] ? ' · ' . e($p['comment']) : '' ?></div>
+                    </div>
+                    <button onclick="deletePenalty(<?= $p['id'] ?>)" class="text-red-400 hover:text-red-600 text-xs">🗑️</button>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Strafkasse-Statistik
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'penalty_stats'):
+    $hasAnyPenalties = array_sum(array_column($penaltyByType, 'count')) > 0;
+?>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-bold text-gray-800 mb-4">Nach Straftyp</h3>
+        <?php if ($hasAnyPenalties): ?>
+        <div style="max-width: 280px; margin: 0 auto 1rem;">
+            <canvas id="chartPenaltyType"></canvas>
+        </div>
+        <?php else: ?>
+        <div class="text-center text-gray-400 py-6 mb-4">
+            <div class="text-3xl mb-2">📊</div>
+            <p>Noch keine Strafen vergeben.</p>
+        </div>
+        <?php endif; ?>
+        <div class="divide-y text-sm">
+            <?php
+            $totalCount = 0;
+            $totalSum = 0;
+            foreach ($penaltyByType as $s):
+                $count = (int)$s['count'];
+                $total = (float)$s['total'];
+                $totalCount += $count;
+                $totalSum += $total;
+            ?>
+            <div class="py-2 flex justify-between items-center <?= $count === 0 ? 'text-gray-300' : '' ?>">
+                <span>
+                    <?= e($s['description']) ?>
+                    <?php if ($count > 0): ?>
+                        <span class="inline-flex items-center justify-center bg-red-100 text-red-700 text-xs font-bold rounded-full px-2 py-0.5 ml-1"><?= $count ?>×</span>
+                    <?php endif; ?>
+                </span>
+                <span class="font-semibold <?= $count > 0 ? 'text-red-600' : 'text-gray-300' ?>"><?= format_currency($total) ?></span>
+            </div>
+            <?php endforeach; ?>
+            <?php if ($totalCount > 0): ?>
+            <div class="py-2 flex justify-between items-center font-bold">
+                <span>Gesamt (<?= $totalCount ?> Strafen)</span>
+                <span class="text-red-700"><?= format_currency($totalSum) ?></span>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-bold text-gray-800 mb-4">Nach Teilnehmer</h3>
+        <?php if ($hasAnyPenalties): ?>
+        <div style="min-height: <?= max(200, count($penaltyByMember) * 28) ?>px">
+            <canvas id="chartPenaltyMember"></canvas>
+        </div>
+        <?php else: ?>
+        <div class="text-center text-gray-400 py-6">
+            <div class="text-3xl mb-2">👥</div>
+            <p>Noch keine Strafen vergeben.</p>
+        </div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<?php if ($hasAnyPenalties): ?>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    // Kreisdiagramm – basiert auf ANZAHL der Strafen
+    const ptData = <?= json_encode(array_values(array_filter($penaltyByType, fn($s) => (int)$s['count'] > 0))) ?>;
+    if (ptData.length > 0) {
+        new Chart(document.getElementById('chartPenaltyType'), {
+            type: 'doughnut',
+            data: {
+                labels: ptData.map(d => d.description + ' (' + d.count + '×)'),
+                datasets: [{
+                    data: ptData.map(d => parseInt(d.count)),
+                    backgroundColor: ['#dc2626','#f59e0b','#22c55e','#3b82f6','#8b5cf6','#ec4899','#14b8a6'],
+                    borderWidth: 0,
+                }]
+            },
+            options: {
+                responsive: true,
+                cutout: '55%',
+                plugins: {
+                    legend: { position: 'bottom', labels: { boxWidth: 10, padding: 8 } },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const d = ptData[ctx.dataIndex];
+                                return d.count + '× – ' + parseFloat(d.total).toFixed(2).replace('.', ',') + ' €';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+
+    // Balkendiagramm
+    const pmData = <?= json_encode(array_values(array_filter($penaltyByMember, fn($s) => (float)$s['total'] > 0))) ?>;
+    if (pmData.length > 0) {
+        pmData.sort((a, b) => b.total - a.total);
+        new Chart(document.getElementById('chartPenaltyMember'), {
+            type: 'bar',
+            data: {
+                labels: pmData.map(d => d.name),
+                datasets: [{
+                    label: 'Strafen (€)',
+                    data: pmData.map(d => parseFloat(d.total)),
+                    backgroundColor: '#dc2626',
+                    borderRadius: 4,
+                }]
+            },
+            options: {
+                indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { beginAtZero: true, grid: { color: '#f3f4f6' } }, y: { grid: { display: false } } }
+            }
+        });
+    }
+});
+</script>
+<?php endif; ?>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Audit-Log
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'audit'):
+    $filterAction = $_GET['filter_action'] ?? '';
+    $filterMember = isset($_GET['filter_member']) ? (int)$_GET['filter_member'] : 0;
+    $logs = get_audit_log($event['id'], $filterAction ?: null, $filterMember ?: null, 200);
+?>
+<div class="bg-white rounded-xl shadow-sm border overflow-hidden">
+    <div class="px-5 py-4 border-b flex flex-wrap items-center justify-between gap-3">
+        <h3 class="font-bold text-gray-800">Audit-Log</h3>
+        <div class="flex gap-2 flex-wrap">
+            <select onchange="filterAudit('filter_action', this.value)" class="border rounded-lg p-1.5 text-xs">
+                <option value="">Alle Aktionen</option>
+                <?php foreach (['excuse','withdraw_excuse','attendance','member_add','member_update','member_bulk','session_add','session_delete','penalty_add','penalty_delete','penalty_type_add','event_update','setup'] as $at): ?>
+                <option value="<?= $at ?>" <?= $filterAction === $at ? 'selected' : '' ?>><?= $at ?></option>
+                <?php endforeach; ?>
+            </select>
+            <select onchange="filterAudit('filter_member', this.value)" class="border rounded-lg p-1.5 text-xs">
+                <option value="">Alle Teilnehmer</option>
+                <?php foreach ($members as $m): ?>
+                <option value="<?= $m['id'] ?>" <?= $filterMember == $m['id'] ? 'selected' : '' ?>><?= e($m['name']) ?></option>
+                <?php endforeach; ?>
+            </select>
+            <a href="api.php?action=export_audit_csv&event_token=<?= e($event['public_token']) ?>&admin_token=<?= e($adminToken) ?>"
+               class="bg-gray-100 hover:bg-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-xs font-medium transition">📥 CSV-Export</a>
+        </div>
+    </div>
+    <div class="divide-y max-h-screen overflow-y-auto text-sm">
+        <?php if (empty($logs)): ?>
+            <div class="px-5 py-8 text-center text-gray-400">Keine Log-Einträge gefunden.</div>
+        <?php endif; ?>
+        <?php foreach ($logs as $log): ?>
+        <div class="px-5 py-2.5">
+            <div class="flex items-start justify-between gap-2">
+                <div>
+                    <span class="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-0.5 rounded font-mono"><?= e($log['action_type']) ?></span>
+                    <?php if ($log['member_name']): ?>
+                        <span class="text-gray-500 text-xs ml-1"><?= e($log['member_name']) ?></span>
+                    <?php endif; ?>
+                    <div class="text-gray-700 mt-0.5"><?= e($log['action_description']) ?></div>
+                </div>
+                <div class="text-xs text-gray-400 whitespace-nowrap">
+                    <?= format_datetime($log['created_at']) ?>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+</div>
+
+<?php
+// ══════════════════════════════════════════════════════════════
+// Tab: Einstellungen
+// ══════════════════════════════════════════════════════════════
+elseif ($tab === 'settings'):
+?>
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-bold text-gray-800 mb-4">Event-Einstellungen</h3>
+        <form onsubmit="return updateEvent(event)">
+            <div class="space-y-4">
+                <div>
+                    <label class="text-xs font-semibold text-gray-500">Name:</label>
+                    <input type="text" id="eventName" value="<?= e($event['name']) ?>" required class="w-full border rounded-lg p-2 text-sm mt-1">
+                </div>
+                <div>
+                    <label class="text-xs font-semibold text-gray-500">Status:</label>
+                    <select id="eventStatus" class="w-full border rounded-lg p-2 text-sm mt-1">
+                        <option value="active" <?= $event['status'] === 'active' ? 'selected' : '' ?>>Aktiv</option>
+                        <option value="archived" <?= $event['status'] === 'archived' ? 'selected' : '' ?>>Archiviert</option>
+                    </select>
+                </div>
+                <hr>
+                <h4 class="font-semibold text-gray-700">Frist 1</h4>
+                <div>
+                    <label class="text-xs text-gray-500">Anzeigename:</label>
+                    <input type="text" id="d1Name" value="<?= e($event['deadline_1_name'] ?? 'Frist 1') ?>" placeholder="z.B. Zwischenziel, Halbzeit..." class="w-full border rounded-lg p-2 text-sm mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Datum:</label>
+                        <input type="date" id="d1Date" value="<?= $event['deadline_1_date'] ?>" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
+                        <input type="number" id="d1Count" value="<?= $event['deadline_1_count'] ?>" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                </div>
+                <h4 class="font-semibold text-gray-700">Frist 2</h4>
+                <div>
+                    <label class="text-xs text-gray-500">Anzeigename:</label>
+                    <input type="text" id="d2Name" value="<?= e($event['deadline_2_name'] ?? 'Frist 2') ?>" placeholder="z.B. Abnahme, Finale..." class="w-full border rounded-lg p-2 text-sm mt-1">
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Datum:</label>
+                        <input type="date" id="d2Date" value="<?= $event['deadline_2_date'] ?>" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
+                        <input type="number" id="d2Count" value="<?= $event['deadline_2_count'] ?>" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                </div>
+                <hr>
+                <h4 class="font-semibold text-gray-700">Übungsdauer</h4>
+                <div>
+                    <label class="text-xs text-gray-500">Standard-Übungsdauer (Stunden):</label>
+                    <p class="text-xs text-gray-400 mt-0.5 mb-1">Bestimmt, ab wann eine Übung als beendet gilt und der "Nächste Termin" wechselt.</p>
+                    <input type="number" id="sessionDuration" value="<?= (int)($event['session_duration_hours'] ?? 3) ?>" min="1" max="12" class="w-full border rounded-lg p-2 text-sm">
+                </div>
+                <hr>
+                <h4 class="font-semibold text-gray-700">Wetter-Standort</h4>
+                <div>
+                    <label class="text-xs text-gray-500">Ort (für Wettervorhersage im Dashboard):</label>
+                    <div class="flex gap-2 mt-1">
+                        <input type="text" id="weatherQuery" placeholder="Ortsname oder PLZ eingeben..."
+                               value="<?= e($event['weather_location'] ?? 'Rutesheim') ?>"
+                               class="flex-1 border rounded-lg p-2 text-sm">
+                        <button type="button" onclick="geocodeLocation()"
+                                class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition shrink-0">
+                            🔍 Suchen
+                        </button>
+                    </div>
+                    <div id="geocodeResults" class="mt-2 hidden"></div>
+                    <input type="hidden" id="weatherLocation" value="<?= e($event['weather_location'] ?? 'Rutesheim') ?>">
+                    <input type="hidden" id="weatherLat" value="<?= (float)($event['weather_lat'] ?? 48.81) ?>">
+                    <input type="hidden" id="weatherLng" value="<?= (float)($event['weather_lng'] ?? 8.945) ?>">
+                    <p class="text-xs text-gray-400 mt-1" id="weatherCurrentInfo">
+                        Aktuell: <?= e($event['weather_location'] ?? 'Rutesheim') ?>
+                        (<?= number_format((float)($event['weather_lat'] ?? 48.81), 4) ?>°N,
+                         <?= number_format((float)($event['weather_lng'] ?? 8.945), 4) ?>°E)
+                    </p>
+                </div>
+                <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                    💾 Speichern
+                </button>
+            </div>
+        </form>
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border p-5">
+        <h3 class="font-bold text-gray-800 mb-4">Neuen Jahrgang erstellen</h3>
+        <form onsubmit="return createEvent(event)">
+            <div class="space-y-3">
+                <input type="text" id="newEventName" placeholder="z.B. LAZ Silber 2027" required class="w-full border rounded-lg p-2 text-sm">
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Frist 1 Datum:</label>
+                        <input type="date" id="newD1Date" required class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
+                        <input type="number" id="newD1Count" value="11" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                </div>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Frist 2 Datum:</label>
+                        <input type="date" id="newD2Date" required class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <div>
+                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
+                        <input type="number" id="newD2Count" value="20" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                </div>
+                <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition">
+                    ➕ Jahrgang erstellen
+                </button>
+            </div>
+        </form>
+        <div id="newEventResult" class="mt-4 hidden"></div>
+    </div>
+</div>
+
+<?php endif; ?>
+
+<!-- ═══ Admin JavaScript ═══════════════════════════════════════ -->
+<script>
+const ADMIN_TOKEN = '<?= e($adminToken) ?>';
+
+async function adminApi(action, data = {}) {
+    data.admin_token = ADMIN_TOKEN;
+    return apiCall(action, data, ADMIN_TOKEN);
+}
+
+// ── Teilnehmer ──────────────────────────────────────────────
+async function addMember(e) {
+    e.preventDefault();
+    const r = await adminApi('add_member', {
+        name: document.getElementById('memberName').value,
+        role: document.getElementById('memberRole').value
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+async function bulkImportMembers(e) {
+    e.preventDefault();
+    const r = await adminApi('bulk_import_members', {
+        names: document.getElementById('bulkNames').value
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+function editMember(id, name, role, active) {
+    document.getElementById('editMemberId').value = id;
+    document.getElementById('editMemberName').value = name;
+    document.getElementById('editMemberRole').value = role;
+    document.getElementById('editMemberActive').checked = active;
+    document.getElementById('editMemberModal').classList.remove('hidden');
+}
+
+async function saveMember(e) {
+    e.preventDefault();
+    const r = await adminApi('update_member', {
+        member_id: document.getElementById('editMemberId').value,
+        name: document.getElementById('editMemberName').value,
+        role: document.getElementById('editMemberRole').value,
+        active: document.getElementById('editMemberActive').checked ? 1 : 0,
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+// ── Termine ─────────────────────────────────────────────────
+async function addSession(e) {
+    e.preventDefault();
+    const r = await adminApi('add_session', {
+        date: document.getElementById('sessionDate').value,
+        time: document.getElementById('sessionTime').value,
+        comment: document.getElementById('sessionComment').value,
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+async function bulkImportSessions(e) {
+    e.preventDefault();
+    const r = await adminApi('bulk_import_sessions', {
+        sessions_data: document.getElementById('bulkSessions').value
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+async function deleteSession(id) {
+    if (!confirm('Termin wirklich löschen? Alle Anwesenheitsdaten gehen verloren!')) return;
+    const r = await adminApi('delete_session', { session_id: id });
+    if (r.success) setTimeout(() => location.reload(), 800);
+}
+
+// ── Anwesenheit ─────────────────────────────────────────────
+// ── Anwesenheit (aufklappbare Terminliste) ──────────────────
+function toggleAttendance(sessionId) {
+    const panel = document.getElementById('att-panel-' + sessionId);
+    const icon = document.getElementById('expand-icon-' + sessionId);
+    if (!panel) return;
+    const isHidden = panel.classList.contains('hidden');
+    panel.classList.toggle('hidden');
+    if (icon) icon.textContent = isHidden ? '▼' : '▶';
+}
+
+const attColors = {
+    present: { bg: 'bg-green-600', text: 'text-white', border: 'border-green-600' },
+    excused: { bg: 'bg-yellow-500', text: 'text-white', border: 'border-yellow-500' },
+    absent:  { bg: 'bg-red-600',    text: 'text-white', border: 'border-red-600' },
+};
+const attDefault = { bg: 'bg-white', text: 'text-gray-500', border: 'border-gray-200' };
+
+function updateAttButtons(sessionId, memberId, newStatus) {
+    const group = document.querySelector('.att-group[data-session="' + sessionId + '"][data-member="' + memberId + '"]');
+    if (!group) return;
+    group.querySelectorAll('.att-btn').forEach(btn => {
+        const btnStatus = btn.getAttribute('data-status');
+        const isActive = (newStatus !== '' && btnStatus === newStatus);
+        const colors = isActive ? attColors[btnStatus] : attDefault;
+        Object.values(attColors).forEach(c => btn.classList.remove(c.bg, c.text, c.border));
+        btn.classList.remove(attDefault.bg, attDefault.text, attDefault.border);
+        btn.classList.add(colors.bg, colors.text, colors.border);
+    });
+}
+
+function showAttSaved(sessionId, memberId) {
+    const indicator = document.getElementById('att-saved-' + sessionId + '-' + memberId);
+    if (!indicator) return;
+    indicator.classList.remove('hidden');
+    setTimeout(() => indicator.classList.add('hidden'), 2000);
+}
+
+async function setAttFor(sessionId, memberId, status) {
+    const input = document.getElementById('att-val-' + sessionId + '-' + memberId);
+    if (!input) return;
+
+    // Toggle: erneuter Klick auf aktiven Status → zurücksetzen
+    const newStatus = (input.value === status) ? '' : status;
+    input.value = newStatus;
+
+    // Sofort visuell aktualisieren
+    updateAttButtons(sessionId, memberId, newStatus);
+
+    // Sofort einzeln speichern
+    const data = { session_id: sessionId };
+    data['attendance[' + memberId + ']'] = newStatus;
+    const result = await adminApi('save_attendance', data);
+    if (result.success) {
+        showAttSaved(sessionId, memberId);
+    }
+}
+
+async function setAllAttendanceFor(sessionId, status) {
+    const groups = document.querySelectorAll('.att-group[data-session="' + sessionId + '"]');
+    // Zuerst alle visuell aktualisieren
+    groups.forEach(group => {
+        const memberId = group.getAttribute('data-member');
+        const input = document.getElementById('att-val-' + sessionId + '-' + memberId);
+        if (input) input.value = status;
+        updateAttButtons(sessionId, parseInt(memberId), status);
+    });
+
+    // Dann alle auf einmal speichern (ein API-Call für Effizienz)
+    const data = { session_id: sessionId };
+    groups.forEach(group => {
+        const memberId = group.getAttribute('data-member');
+        data['attendance[' + memberId + ']'] = status;
+    });
+    const result = await adminApi('save_attendance', data);
+    if (result.success) {
+        groups.forEach(group => {
+            const memberId = group.getAttribute('data-member');
+            showAttSaved(sessionId, parseInt(memberId));
+        });
+    }
+}
+
+// ── Straftypen ──────────────────────────────────────────────
+async function addPenaltyType(e) {
+    e.preventDefault();
+    const r = await adminApi('add_penalty_type', {
+        description: document.getElementById('ptDescription').value,
+        amount: document.getElementById('ptAmount').value,
+        active_from: document.getElementById('ptActiveFrom').value,
+        sort_order: document.getElementById('ptSortOrder').value,
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+async function deletePenaltyType(id) {
+    if (!confirm('Straftyp wirklich löschen?')) return;
+    const r = await adminApi('delete_penalty_type', { penalty_type_id: id });
+    if (r.success) setTimeout(() => location.reload(), 800);
+}
+
+function editPenaltyType(id) {
+    // Close any other open editors
+    document.querySelectorAll('[id^="pt-edit-"]').forEach(el => el.classList.add('hidden'));
+    document.querySelectorAll('[id^="pt-buttons-"]').forEach(el => el.classList.remove('hidden'));
+    // Open this one
+    document.getElementById('pt-edit-' + id).classList.remove('hidden');
+    document.getElementById('pt-buttons-' + id).classList.add('hidden');
+}
+
+function cancelEditPenaltyType(id) {
+    document.getElementById('pt-edit-' + id).classList.add('hidden');
+    document.getElementById('pt-buttons-' + id).classList.remove('hidden');
+}
+
+async function savePenaltyType(id) {
+    const r = await adminApi('update_penalty_type', {
+        penalty_type_id: id,
+        description: document.getElementById('pt-desc-' + id).value,
+        amount: document.getElementById('pt-amount-' + id).value,
+        active_from: document.getElementById('pt-from-' + id).value,
+        active: document.getElementById('pt-active-' + id).checked ? 1 : 0,
+        sort_order: document.getElementById('pt-sort-' + id).value,
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+}
+
+// ── Strafen ─────────────────────────────────────────────────
+async function addPenalty(e) {
+    e.preventDefault();
+    const r = await adminApi('add_penalty', {
+        member_id: document.getElementById('penMember').value,
+        penalty_type_id: document.getElementById('penType').value,
+        penalty_date: document.getElementById('penDate').value,
+        comment: document.getElementById('penComment').value,
+    });
+    if (r.success) setTimeout(() => location.reload(), 800);
+    return false;
+}
+
+async function deletePenalty(id) {
+    if (!confirm('Strafe wirklich rückgängig machen?')) return;
+    const r = await adminApi('delete_penalty', { penalty_id: id });
+    if (r.success) setTimeout(() => location.reload(), 800);
+}
+
+// ── Event ───────────────────────────────────────────────────
+async function updateEvent(e) {
+    e.preventDefault();
+    await adminApi('update_event', {
+        name: document.getElementById('eventName').value,
+        status: document.getElementById('eventStatus').value,
+        deadline_1_date: document.getElementById('d1Date').value,
+        deadline_1_count: document.getElementById('d1Count').value,
+        deadline_1_name: document.getElementById('d1Name').value,
+        deadline_2_date: document.getElementById('d2Date').value,
+        deadline_2_count: document.getElementById('d2Count').value,
+        deadline_2_name: document.getElementById('d2Name').value,
+        session_duration_hours: document.getElementById('sessionDuration').value,
+        weather_location: document.getElementById('weatherLocation').value,
+        weather_lat: document.getElementById('weatherLat').value,
+        weather_lng: document.getElementById('weatherLng').value,
+    });
+    return false;
+}
+
+// ── Geocoding (Ortssuche) ───────────────────────────────────
+async function geocodeLocation() {
+    const query = document.getElementById('weatherQuery').value.trim();
+    if (!query) { showToast('Bitte einen Ortsnamen oder PLZ eingeben.', 'warning'); return; }
+
+    const result = await adminApi('geocode', { query: query });
+    const container = document.getElementById('geocodeResults');
+
+    if (!result.success || !result.results) {
+        container.innerHTML = '<p class="text-red-500 text-xs">Kein Ort gefunden.</p>';
+        container.classList.remove('hidden');
+        return;
+    }
+
+    let html = '<div class="space-y-1">';
+    result.results.forEach((r, i) => {
+        const label = r.name + (r.admin1 ? ', ' + r.admin1 : '') + (r.country ? ' (' + r.country + ')' : '');
+        html += `<button type="button" onclick="selectWeatherLocation('${r.name.replace(/'/g, "\\'")}', ${r.lat}, ${r.lng})"
+                    class="w-full text-left px-3 py-2 rounded-lg text-sm border hover:bg-blue-50 hover:border-blue-300 transition">
+                    📍 ${label} <span class="text-gray-400 text-xs">(${r.lat.toFixed(3)}°, ${r.lng.toFixed(3)}°)</span>
+                 </button>`;
+    });
+    html += '</div>';
+    container.innerHTML = html;
+    container.classList.remove('hidden');
+}
+
+function selectWeatherLocation(name, lat, lng) {
+    document.getElementById('weatherLocation').value = name;
+    document.getElementById('weatherLat').value = lat;
+    document.getElementById('weatherLng').value = lng;
+    document.getElementById('weatherQuery').value = name;
+    document.getElementById('geocodeResults').classList.add('hidden');
+    document.getElementById('weatherCurrentInfo').innerHTML =
+        'Ausgewählt: <strong>' + name + '</strong> (' + lat.toFixed(4) + '°N, ' + lng.toFixed(4) + '°E) — zum Übernehmen "Speichern" klicken';
+    document.getElementById('weatherCurrentInfo').classList.add('text-blue-600');
+    showToast('Standort "' + name + '" ausgewählt. Bitte "Speichern" klicken.', 'info');
+}
+
+async function createEvent(e) {
+    e.preventDefault();
+    const r = await adminApi('create_event', {
+        name: document.getElementById('newEventName').value,
+        deadline_1_date: document.getElementById('newD1Date').value,
+        deadline_1_count: document.getElementById('newD1Count').value,
+        deadline_2_date: document.getElementById('newD2Date').value,
+        deadline_2_count: document.getElementById('newD2Count').value,
+    });
+    if (r.success) {
+        const div = document.getElementById('newEventResult');
+        div.classList.remove('hidden');
+        div.innerHTML = `
+            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                <p class="text-green-800 font-semibold mb-2">✅ Jahrgang erstellt!</p>
+                <div class="space-y-2 text-xs">
+                    <div><label class="font-semibold text-green-700">Öffentlich:</label><br>
+                    <input type="text" readonly value="${r.public_url}" class="w-full p-1 border rounded font-mono" onclick="this.select()"></div>
+                    <div><label class="font-semibold text-green-700">Admin:</label><br>
+                    <input type="text" readonly value="${r.admin_url}" class="w-full p-1 border rounded font-mono" onclick="this.select()"></div>
+                </div>
+            </div>`;
+    }
+    return false;
+}
+
+// ── Audit-Filter ────────────────────────────────────────────
+function filterAudit(param, value) {
+    const url = new URL(location.href);
+    if (value) url.searchParams.set(param, value);
+    else url.searchParams.delete(param);
+    location.href = url.toString();
+}
+</script>
+
+<?php require __DIR__ . '/partials/footer.php'; ?>

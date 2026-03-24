@@ -1,0 +1,31 @@
+# LAZ Übungs-Tracker – Apache-Konfiguration
+
+# UTF-8 Encoding
+AddDefaultCharset UTF-8
+
+# Verzeichnislisting deaktivieren
+Options -Indexes
+
+# PHP-Fehler nicht anzeigen (Produktion)
+php_flag display_errors off
+php_flag log_errors on
+
+# Schutz sensibler Dateien
+<FilesMatch "\.(php|ini|log)$">
+    # config.php und db.php nur serverseitig ausführbar
+</FilesMatch>
+
+# Cache für statische Dateien
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 week"
+    ExpiresByType application/javascript "access plus 1 week"
+</IfModule>
+
+# Sicherheits-Header
+<IfModule mod_headers.c>
+    Header set X-Content-Type-Options "nosniff"
+    Header set X-Frame-Options "SAMEORIGIN"
+    Header set X-XSS-Protection "1; mode=block"
+    Header set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
