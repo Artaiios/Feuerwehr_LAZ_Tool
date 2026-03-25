@@ -14,7 +14,7 @@ Die Anwendung hat eine dreistufige Verwaltungsstruktur mit klarer Rollentrennung
 
 ```
 ┌──────────────────────────────────────────────────────────────────┐
-│                     🔑 SERVER-ADMIN                              │
+│                     🔑 SERVER-ADMIN                               │
 │                  admin.php?token={...}                           │
 │                                                                  │
 │  • Events erstellen / löschen          • Globale Einstellungen   │
@@ -25,7 +25,7 @@ Die Anwendung hat eine dreistufige Verwaltungsstruktur mit klarer Rollentrennung
 │          │                                       │               │
 │          ▼                                       ▼               │
 │  ┌──────────────────────┐          ┌──────────────────────┐      │
-│  │  🔑 EVENT-ADMIN (GF) │          │  🔑 EVENT-ADMIN (GF) │      │
+│  │  🔑 EVENT-ADMIN (GF)  │          │  🔑 EVENT-ADMIN (GF) │      │
 │  │  ?event=...&admin=...│          │  ?event=...&admin=...│      │
 │  │                      │          │                      │      │
 │  │  • Teilnehmer        │          │  • Teilnehmer        │      │
@@ -36,7 +36,7 @@ Die Anwendung hat eine dreistufige Verwaltungsstruktur mit klarer Rollentrennung
 │  │  • Einstellungen     │          │  • Einstellungen     │      │
 │  │  • Audit-Log         │          │  • Audit-Log         │      │
 │  ├──────────────────────┤          ├──────────────────────┤      │
-│  │  🌐 DASHBOARD        │          │  🌐 DASHBOARD        │      │
+│  │  🌐 DASHBOARD         │          │  🌐 DASHBOARD        │      │
 │  │  ?event=...          │          │  ?event=...          │      │
 │  │                      │          │                      │      │
 │  │  • Frist-Countdowns  │          │  • Frist-Countdowns  │      │
@@ -45,7 +45,7 @@ Die Anwendung hat eine dreistufige Verwaltungsstruktur mit klarer Rollentrennung
 │  │  • Terminliste       │          │  • Terminliste       │      │
 │  │  • Teilnehmer-Tabelle│          │  • Teilnehmer-Tabelle│      │
 │  ├──────────────────────┤          ├──────────────────────┤      │
-│  │  👤 TEILNEHMER       │          │  👤 TEILNEHMER       │      │
+│  │  👤 TEILNEHMER        │          │  👤 TEILNEHMER       │      │
 │  │  ?event=...&member=..│          │  ?event=...&member=..│      │
 │  │                      │          │                      │      │
 │  │  • Fortschritt       │          │  • Fortschritt       │      │
