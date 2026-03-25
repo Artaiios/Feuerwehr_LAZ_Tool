@@ -1,8 +1,15 @@
     </main>
 
+    <?php
+    $footerOrgName = get_server_config('organization_name', 'LAZ Übungs-Tracker');
+    $footerEmail = get_server_config('admin_email', '');
+    ?>
     <footer class="bg-gray-100 border-t mt-12">
         <div class="max-w-7xl mx-auto px-4 py-4 text-center text-gray-400 text-xs">
-            LAZ Übungs-Tracker v<?= APP_VERSION ?> · Freiwillige Feuerwehr Rutesheim
+            LAZ Übungs-Tracker v<?= APP_VERSION ?> · <?= e($footerOrgName) ?>
+            <?php if ($footerEmail): ?>
+                · <a href="mailto:<?= e($footerEmail) ?>" class="hover:text-gray-600 underline"><?= e($footerEmail) ?></a>
+            <?php endif; ?>
         </div>
     </footer>
 

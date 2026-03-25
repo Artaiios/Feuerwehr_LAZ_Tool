@@ -10,8 +10,95 @@ header('Content-Type: application/json; charset=utf-8');
 $action = $_POST['action'] ?? $_GET['action'] ?? '';
 $eventToken = $_POST['event_token'] ?? $_GET['event_token'] ?? '';
 $adminToken = $_POST['admin_token'] ?? $_GET['admin_token'] ?? '';
+$serverToken = $_POST['server_token'] ?? $_GET['server_token'] ?? '';
 
-// Event laden
+// CSRF-Prüfung für POST-Requests
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $csrfToken = $_POST['csrf_token'] ?? '';
+    if (!verify_csrf($csrfToken)) {
+        json_response(['success' => false, 'message' => 'Ungültiges Sicherheitstoken. Bitte Seite neu laden.'], 403);
+    }
+}
+
+// ── Server-Admin Aktionen ───────────────────────────────────
+$isServerAdmin = verify_server_admin_token($serverToken);
+
+if ($isServerAdmin && in_array($action, ['create_event', 'delete_event', 'save_server_settings'])) {
+    try {
+        switch ($action) {
+            case 'create_event':
+                $name = trim($_POST['name'] ?? '');
+                $orgName = trim($_POST['organization_name'] ?? '');
+                $d2Date = $_POST['deadline_2_date'] ?? '';
+                $d2Count = max(1, (int)($_POST['deadline_2_count'] ?? 20));
+                $d1Enabled = ($_POST['deadline_1_enabled'] ?? '0') === '1';
+                $d1Date = $_POST['deadline_1_date'] ?? '';
+                $d1Count = max(1, (int)($_POST['deadline_1_count'] ?? 11));
+                $penaltySource = $_POST['penalty_source'] ?? 'default';
+                $copyFrom = (int)($_POST['copy_from_event'] ?? 0);
+
+                if (empty($name) || empty($d2Date)) {
+                    json_response(['success' => false, 'message' => 'Name und Hauptfrist-Datum sind erforderlich.'], 400);
+                }
+
+                $result = create_event($name, $d2Date, $d2Count, $d1Date, $d1Count, $d1Enabled, $orgName);
+
+                // Strafenkatalog
+                if ($penaltySource === 'copy' && $copyFrom > 0) {
+                    $count = copy_penalty_types($copyFrom, $result['id']);
+                } elseif ($penaltySource === 'default') {
+                    $defaultPenalties = [
+                        ['Zu spät kommen', 5.00, null, 10],
+                        ['Unentschuldigtes Fehlen', 10.00, null, 20],
+                        ['Versagen von Sprüchen', 1.00, null, 30],
+                        ['Rauchen während der Übungsdurchführung', 5.00, null, 40],
+                        ['Handynutzung während der Übungsdurchführung', 5.00, null, 50],
+                        ['PSA unvollständig', 2.00, null, 60],
+                        ['Kurzfristige Absage (< 1h vor Übungsbeginn)', 2.00, null, 70],
+                    ];
+                    foreach ($defaultPenalties as $p) {
+                        create_penalty_type($result['id'], $p[0], $p[1], $p[2], $p[3]);
+                    }
+                }
+
+                // Audit-Log (verwende das neue Event)
+                audit_log($result['id'], null, 'event_create', 'Event "' . $name . '" erstellt (Server-Admin)');
+
+                $baseUrl = get_base_url();
+                json_response([
+                    'success' => true,
+                    'message' => 'Event "' . $name . '" erstellt.',
+                    'public_url' => $baseUrl . '/index.php?event=' . $result['public_token'],
+                    'admin_url' => $baseUrl . '/index.php?event=' . $result['public_token'] . '&admin=' . $result['admin_token'],
+                ]);
+                break;
+
+            case 'delete_event':
+                $eventId = (int)($_POST['event_id'] ?? 0);
+                if (!$eventId) json_response(['success' => false, 'message' => 'Ungültige Event-ID.'], 400);
+                $ev = get_event_by_id($eventId);
+                if (!$ev) json_response(['success' => false, 'message' => 'Event nicht gefunden.'], 404);
+                delete_event($eventId);
+                json_response(['success' => true, 'message' => 'Event "' . $ev['name'] . '" gelöscht.']);
+                break;
+
+            case 'save_server_settings':
+                $newOrgName = trim($_POST['organization_name'] ?? '');
+                $adminEmail = trim($_POST['admin_email'] ?? '');
+                $showOverview = ($_POST['show_public_overview'] ?? '0') === '1' ? '1' : '0';
+                if (!empty($newOrgName)) set_server_config('organization_name', $newOrgName);
+                set_server_config('admin_email', $adminEmail);
+                set_server_config('show_public_overview', $showOverview);
+                json_response(['success' => true, 'message' => 'Einstellungen gespeichert.']);
+                break;
+        }
+    } catch (Exception $e) {
+        json_response(['success' => false, 'message' => 'Fehler: ' . $e->getMessage()], 500);
+    }
+    exit;
+}
+
+// ── Event-bezogene Aktionen ─────────────────────────────────
 $event = null;
 if ($eventToken) {
     $event = get_event_by_public_token($eventToken);
@@ -26,14 +113,6 @@ if ($adminToken) {
     if ($adminEvent) {
         $isAdmin = true;
         $event = $adminEvent;
-    }
-}
-
-// CSRF-Prüfung für POST-Requests
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $csrfToken = $_POST['csrf_token'] ?? '';
-    if (!verify_csrf($csrfToken)) {
-        json_response(['success' => false, 'message' => 'Ungültiges Sicherheitstoken. Bitte Seite neu laden.'], 403);
     }
 }
 
@@ -336,24 +415,33 @@ try {
         case 'update_event':
             if (!$isAdmin) json_response(['success' => false, 'message' => 'Kein Zugriff.'], 403);
 
-            $name = trim($_POST['name'] ?? '');
-            $status = in_array($_POST['status'] ?? '', ['active', 'archived']) ? $_POST['status'] : 'active';
-            $d1Date = $_POST['deadline_1_date'] ?? '';
-            $d1Count = (int)($_POST['deadline_1_count'] ?? 11);
-            $d2Date = $_POST['deadline_2_date'] ?? '';
-            $d2Count = (int)($_POST['deadline_2_count'] ?? 20);
-            $d1Name = trim($_POST['deadline_1_name'] ?? 'Frist 1');
-            $d2Name = trim($_POST['deadline_2_name'] ?? 'Frist 2');
-            $sessionDuration = max(1, (int)($_POST['session_duration_hours'] ?? 3));
-            $weatherLocation = trim($_POST['weather_location'] ?? '');
-            $weatherLat = (float)($_POST['weather_lat'] ?? 0);
-            $weatherLng = (float)($_POST['weather_lng'] ?? 0);
+            $data = [];
+            $data['name'] = trim($_POST['name'] ?? '');
+            $data['status'] = in_array($_POST['status'] ?? '', ['active', 'archived']) ? $_POST['status'] : 'active';
+            $data['organization_name'] = trim($_POST['organization_name'] ?? '') ?: null;
+            $data['deadline_1_date'] = $_POST['deadline_1_date'] ?? '';
+            $data['deadline_1_count'] = (int)($_POST['deadline_1_count'] ?? 11);
+            $data['deadline_1_name'] = trim($_POST['deadline_1_name'] ?? 'Frist 1');
+            $data['deadline_1_enabled'] = ($_POST['deadline_1_enabled'] ?? '1') === '1' ? 1 : 0;
+            $data['deadline_2_date'] = $_POST['deadline_2_date'] ?? '';
+            $data['deadline_2_count'] = (int)($_POST['deadline_2_count'] ?? 20);
+            $data['deadline_2_name'] = trim($_POST['deadline_2_name'] ?? 'Frist 2');
+            $data['session_duration_hours'] = max(1, (int)($_POST['session_duration_hours'] ?? 3));
 
-            if (empty($name)) {
+            $wLoc = trim($_POST['weather_location'] ?? '');
+            $wLat = (float)($_POST['weather_lat'] ?? 0);
+            $wLng = (float)($_POST['weather_lng'] ?? 0);
+            if ($wLoc !== '' && $wLat != 0 && $wLng != 0) {
+                $data['weather_location'] = $wLoc;
+                $data['weather_lat'] = $wLat;
+                $data['weather_lng'] = $wLng;
+            }
+
+            if (empty($data['name'])) {
                 json_response(['success' => false, 'message' => 'Name darf nicht leer sein.'], 400);
             }
 
-            update_event($event['id'], $name, $status, $d1Date, $d1Count, $d2Date, $d2Count, $d1Name, $d2Name, $sessionDuration, $weatherLocation, $weatherLat, $weatherLng);
+            update_event($event['id'], $data);
             audit_log($event['id'], null, 'event_update', 'Event-Einstellungen aktualisiert');
             json_response(['success' => true, 'message' => 'Einstellungen gespeichert.']);
             break;
@@ -392,32 +480,6 @@ try {
             }
 
             json_response(['success' => true, 'results' => $results]);
-            break;
-
-        // ── Admin: Neues Event erstellen ────────────────────
-        case 'create_event':
-            if (!$isAdmin) json_response(['success' => false, 'message' => 'Kein Zugriff.'], 403);
-
-            $name = trim($_POST['name'] ?? '');
-            $d1Date = $_POST['deadline_1_date'] ?? '';
-            $d1Count = (int)($_POST['deadline_1_count'] ?? 11);
-            $d2Date = $_POST['deadline_2_date'] ?? '';
-            $d2Count = (int)($_POST['deadline_2_count'] ?? 20);
-
-            if (empty($name) || empty($d1Date) || empty($d2Date)) {
-                json_response(['success' => false, 'message' => 'Alle Felder sind erforderlich.'], 400);
-            }
-
-            $result = create_event($name, $d1Date, $d1Count, $d2Date, $d2Count);
-            $baseUrl = get_base_url();
-            audit_log($event['id'], null, 'event_create', 'Neues Event "' . $name . '" erstellt');
-
-            json_response([
-                'success' => true,
-                'message' => 'Neuer Jahrgang erstellt.',
-                'public_url' => $baseUrl . '/index.php?event=' . $result['public_token'],
-                'admin_url' => $baseUrl . '/index.php?event=' . $result['public_token'] . '&admin=' . $result['admin_token'],
-            ]);
             break;
 
         // ── Admin: Audit-Log CSV Export ─────────────────────

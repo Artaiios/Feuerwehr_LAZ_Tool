@@ -8,6 +8,7 @@ $attendance = get_attendance_for_member($member['id']);
 $penalties = get_penalties_for_member($member['id']);
 $penaltyTotal = get_member_penalty_total($member['id']);
 $sessionDuration = (int)($event['session_duration_hours'] ?? 3);
+$d1Enabled = (bool)($event['deadline_1_enabled'] ?? true);
 
 $totalSessions = count($sessions);
 $pastSessions = array_filter($sessions, fn($s) => $s['session_date'] <= date('Y-m-d'));
@@ -28,10 +29,11 @@ $pending = $totalSessions - count($attendance);
 $remainingD1 = count(array_filter($sessions, fn($s) => $s['session_date'] > date('Y-m-d') && $s['session_date'] <= $event['deadline_1_date']));
 $remainingD2 = count(array_filter($sessions, fn($s) => $s['session_date'] > date('Y-m-d') && $s['session_date'] <= $event['deadline_2_date']));
 
-$d1 = calculate_deadline_status($present, $event['deadline_1_count'], $event['deadline_1_date'], $totalSessions, $totalPast, $remainingD1);
+if ($d1Enabled) {
+    $d1 = calculate_deadline_status($present, $event['deadline_1_count'], $event['deadline_1_date'], $totalSessions, $totalPast, $remainingD1);
+    $progressD1 = $event['deadline_1_count'] > 0 ? min(100, round(($present / $event['deadline_1_count']) * 100)) : 0;
+}
 $d2 = calculate_deadline_status($present, $event['deadline_2_count'], $event['deadline_2_date'], $totalSessions, $totalPast, $remainingD2);
-
-$progressD1 = $event['deadline_1_count'] > 0 ? min(100, round(($present / $event['deadline_1_count']) * 100)) : 0;
 $progressD2 = $event['deadline_2_count'] > 0 ? min(100, round(($present / $event['deadline_2_count']) * 100)) : 0;
 
 $pageTitle = $member['name'] . ' – ' . $event['name'];
@@ -52,7 +54,8 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <!-- Fortschrittsbalken -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-8">
+<div class="grid grid-cols-1 <?= $d1Enabled ? 'md:grid-cols-2' : '' ?> gap-4 mb-8">
+    <?php if ($d1Enabled): ?>
     <div class="bg-white rounded-xl shadow-sm border p-5">
         <div class="flex justify-between items-center mb-2">
             <h3 class="font-semibold text-gray-700"><?= e($event['deadline_1_name'] ?? 'Frist 1') ?>: <?= format_date($event['deadline_1_date']) ?></h3>
@@ -64,6 +67,7 @@ require __DIR__ . '/partials/header.php';
         </div>
         <p class="text-xs text-gray-400 mt-1">Noch <?= max(0, $event['deadline_1_count'] - $present) ?> Teilnahmen benötigt · <?= $remainingD1 ?> Termine übrig</p>
     </div>
+    <?php endif; ?>
     <div class="bg-white rounded-xl shadow-sm border p-5">
         <div class="flex justify-between items-center mb-2">
             <h3 class="font-semibold text-gray-700"><?= e($event['deadline_2_name'] ?? 'Frist 2') ?>: <?= format_date($event['deadline_2_date']) ?></h3>

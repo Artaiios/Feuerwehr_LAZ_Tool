@@ -21,6 +21,41 @@ function get_pdo(): PDO {
     return $pdo;
 }
 
+// ── Server-Konfiguration ────────────────────────────────────
+
+function get_server_config(string $key, string $default = ''): string {
+    try {
+        $stmt = get_pdo()->prepare("SELECT config_value FROM server_config WHERE config_key = ?");
+        $stmt->execute([$key]);
+        $val = $stmt->fetchColumn();
+        return $val !== false ? $val : $default;
+    } catch (PDOException $e) {
+        return $default;
+    }
+}
+
+function set_server_config(string $key, string $value): void {
+    $stmt = get_pdo()->prepare("INSERT INTO server_config (config_key, config_value) VALUES (?, ?) ON DUPLICATE KEY UPDATE config_value = ?, updated_at = NOW()");
+    $stmt->execute([$key, $value, $value]);
+}
+
+function verify_server_admin_token(string $token): bool {
+    if (empty($token)) return false;
+    $stored = get_server_config('server_admin_token');
+    return !empty($stored) && hash_equals($stored, $token);
+}
+
+/**
+ * Gibt den Organisationsnamen zurück.
+ * Pro Event überschreibbar, sonst globaler Standard.
+ */
+function get_organization_name(?array $event = null): string {
+    if ($event && !empty($event['organization_name'])) {
+        return $event['organization_name'];
+    }
+    return get_server_config('organization_name', 'LAZ Übungs-Tracker');
+}
+
 // ── Event-Funktionen ────────────────────────────────────────
 
 function get_event_by_public_token(string $token): ?array {
@@ -36,34 +71,80 @@ function get_event_by_admin_token(string $eventToken, string $adminToken): ?arra
 }
 
 function get_all_events(): array {
-    return get_pdo()->query("SELECT * FROM events ORDER BY created_at DESC")->fetchAll();
+    return get_pdo()->query("SELECT * FROM events ORDER BY status ASC, created_at DESC")->fetchAll();
 }
 
-function create_event(string $name, string $d1_date, int $d1_count, string $d2_date, int $d2_count): array {
+function get_active_events(): array {
+    return get_pdo()->query("SELECT * FROM events WHERE status = 'active' ORDER BY created_at DESC")->fetchAll();
+}
+
+function get_event_by_id(int $id): ?array {
+    $stmt = get_pdo()->prepare("SELECT * FROM events WHERE id = ?");
+    $stmt->execute([$id]);
+    return $stmt->fetch() ?: null;
+}
+
+function create_event(string $name, string $d2_date, int $d2_count, string $d1_date = '', int $d1_count = 0, bool $d1_enabled = false, string $orgName = ''): array {
     $publicToken = generate_token(16);
     $adminToken = generate_token(24);
-    $stmt = get_pdo()->prepare("INSERT INTO events (name, public_token, admin_token, deadline_1_date, deadline_1_count, deadline_2_date, deadline_2_count, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', NOW())");
-    $stmt->execute([$name, $publicToken, $adminToken, $d1_date, $d1_count, $d2_date, $d2_count]);
+    $stmt = get_pdo()->prepare("INSERT INTO events (name, organization_name, public_token, admin_token, deadline_1_date, deadline_1_count, deadline_1_enabled, deadline_2_date, deadline_2_count, status, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', NOW())");
+    $stmt->execute([
+        $name,
+        $orgName ?: null,
+        $publicToken,
+        $adminToken,
+        $d1_date ?: $d2_date, // Fallback auf Frist 2 wenn keine Frist 1
+        $d1_count ?: $d2_count,
+        $d1_enabled ? 1 : 0,
+        $d2_date,
+        $d2_count,
+    ]);
     return [
-        'id' => get_pdo()->lastInsertId(),
+        'id' => (int)get_pdo()->lastInsertId(),
         'public_token' => $publicToken,
         'admin_token' => $adminToken,
     ];
 }
 
-function update_event(int $id, string $name, string $status, string $d1_date, int $d1_count, string $d2_date, int $d2_count, string $d1_name = 'Frist 1', string $d2_name = 'Frist 2', int $sessionDuration = 3, string $weatherLocation = '', float $weatherLat = 0, float $weatherLng = 0): void {
-    $sql = "UPDATE events SET name=?, status=?, deadline_1_date=?, deadline_1_count=?, deadline_2_date=?, deadline_2_count=?, deadline_1_name=?, deadline_2_name=?, session_duration_hours=?";
-    $params = [$name, $status, $d1_date, $d1_count, $d2_date, $d2_count, $d1_name, $d2_name, $sessionDuration];
-    if ($weatherLocation !== '' && $weatherLat != 0 && $weatherLng != 0) {
-        $sql .= ", weather_location=?, weather_lat=?, weather_lng=?";
-        $params[] = $weatherLocation;
-        $params[] = $weatherLat;
-        $params[] = $weatherLng;
+function copy_penalty_types(int $fromEventId, int $toEventId): int {
+    $types = get_penalty_types($fromEventId);
+    $count = 0;
+    foreach ($types as $pt) {
+        create_penalty_type($toEventId, $pt['description'], (float)$pt['amount'], $pt['active_from'], (int)$pt['sort_order']);
+        $count++;
     }
-    $sql .= " WHERE id=?";
+    return $count;
+}
+
+function update_event(int $id, array $data): void {
+    $fields = [];
+    $params = [];
+
+    $allowed = [
+        'name', 'status', 'organization_name',
+        'deadline_1_date', 'deadline_1_count', 'deadline_1_name', 'deadline_1_enabled',
+        'deadline_2_date', 'deadline_2_count', 'deadline_2_name',
+        'session_duration_hours', 'weather_location', 'weather_lat', 'weather_lng',
+    ];
+
+    foreach ($allowed as $field) {
+        if (array_key_exists($field, $data)) {
+            $fields[] = "$field = ?";
+            $params[] = $data[$field];
+        }
+    }
+
+    if (empty($fields)) return;
+
     $params[] = $id;
+    $sql = "UPDATE events SET " . implode(', ', $fields) . " WHERE id = ?";
     $stmt = get_pdo()->prepare($sql);
     $stmt->execute($params);
+}
+
+function delete_event(int $id): void {
+    // Cascade löscht alle verknüpften Daten
+    get_pdo()->prepare("DELETE FROM events WHERE id = ?")->execute([$id]);
 }
 
 // ── Session-Zeitlogik ───────────────────────────────────────
@@ -444,5 +525,29 @@ function get_penalty_stats_by_type(int $eventId): array {
 function get_penalty_stats_by_member(int $eventId): array {
     $stmt = get_pdo()->prepare("SELECT m.name, m.id, COALESCE(SUM(pt.amount), 0) as total, COUNT(p.id) as count FROM members m LEFT JOIN penalties p ON m.id = p.member_id AND p.deleted_at IS NULL LEFT JOIN penalty_types pt ON p.penalty_type_id = pt.id WHERE m.event_id = ? AND m.active = 1 GROUP BY m.id ORDER BY total DESC");
     $stmt->execute([$eventId]);
+    return $stmt->fetchAll();
+}
+
+// ── Server-Admin Statistiken ────────────────────────────────
+
+function get_event_stats_overview(): array {
+    $sql = "SELECT e.*,
+            (SELECT COUNT(*) FROM members m WHERE m.event_id = e.id AND m.active = 1) as member_count,
+            (SELECT COUNT(*) FROM sessions s WHERE s.event_id = e.id) as session_count,
+            (SELECT COUNT(*) FROM attendance a JOIN sessions s2 ON a.session_id = s2.id WHERE s2.event_id = e.id AND a.status = 'present') as total_present,
+            (SELECT COALESCE(SUM(pt.amount), 0) FROM penalties p JOIN penalty_types pt ON p.penalty_type_id = pt.id JOIN members m2 ON p.member_id = m2.id WHERE m2.event_id = e.id AND p.deleted_at IS NULL) as total_penalties
+            FROM events e ORDER BY e.status ASC, e.created_at DESC";
+    return get_pdo()->query($sql)->fetchAll();
+}
+
+function get_global_audit_log(int $limit = 200): array {
+    $sql = "SELECT al.*, m.name as member_name, ev.name as event_name
+            FROM audit_log al
+            LEFT JOIN members m ON al.member_id = m.id
+            LEFT JOIN events ev ON al.event_id = ev.id
+            ORDER BY al.created_at DESC
+            LIMIT ?";
+    $stmt = get_pdo()->prepare($sql);
+    $stmt->execute([$limit]);
     return $stmt->fetchAll();
 }

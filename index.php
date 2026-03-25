@@ -11,10 +11,16 @@ $eventToken = $_GET['event'] ?? '';
 $adminToken = $_GET['admin'] ?? '';
 $memberId   = isset($_GET['member']) ? (int)$_GET['member'] : 0;
 
-// Kein Event-Token → Fehlerseite
+// Kein Event-Token → Startseite oder Fehler
 if (empty($eventToken)) {
-    http_response_code(404);
-    require __DIR__ . '/views/partials/error.php';
+    $showOverview = get_server_config('show_public_overview', '0') === '1';
+    if ($showOverview) {
+        require __DIR__ . '/views/overview.php';
+    } else {
+        http_response_code(404);
+        $errorMessage = 'Kein Event angegeben. Bitte verwende den direkten Link zu deinem Event.';
+        require __DIR__ . '/views/partials/error.php';
+    }
     exit;
 }
 

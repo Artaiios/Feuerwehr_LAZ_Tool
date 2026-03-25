@@ -8,6 +8,8 @@ $members = get_members($event['id']);
 $memberStats = get_member_stats($event['id']);
 $totalPenalty = get_event_penalty_total($event['id']);
 $sessionDuration = (int)($event['session_duration_hours'] ?? 3);
+$d1Enabled = (bool)($event['deadline_1_enabled'] ?? true);
+$dashOrgName = get_organization_name($event);
 
 $now = new DateTime();
 $deadline1 = new DateTime($event['deadline_1_date']);
@@ -149,7 +151,7 @@ require __DIR__ . '/partials/header.php';
     <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2">
         🔥 <?= e($event['name']) ?>
     </h1>
-    <p class="text-gray-500">Freiwillige Feuerwehr Rutesheim · <?= date('d.m.Y') ?> · <?= $totalSessions ?> Termine insgesamt</p>
+    <p class="text-gray-500"><?= e($dashOrgName) ?> · <?= date('d.m.Y') ?> · <?= $totalSessions ?> Termine insgesamt</p>
 
     <!-- Gesamtfortschritt -->
     <div class="mt-4">
@@ -165,14 +167,15 @@ require __DIR__ . '/partials/header.php';
 </div>
 
 <!-- ══ Frist-Countdown-Karten ══════════════════════════════════ -->
-<div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+<div class="grid grid-cols-1 <?= $d1Enabled ? 'md:grid-cols-2' : '' ?> gap-4 mb-6">
     <?php
     $d1Name = e($event['deadline_1_name'] ?? 'Frist 1');
     $d2Name = e($event['deadline_2_name'] ?? 'Frist 2');
     $d1Passed = $deadline1 < $now;
     $d2Passed = $deadline2 < $now;
     ?>
-    <!-- Frist 1 -->
+    <?php if ($d1Enabled): ?>
+    <!-- Frist 1 (Zwischenziel) -->
     <div class="rounded-xl border overflow-hidden <?= $d1Passed ? 'bg-gray-50 border-gray-200' : 'bg-white border-yellow-200' ?>">
         <div style="height: 4px; background: <?= $d1Passed ? '#9ca3af' : '#f59e0b' ?>;"></div>
         <div class="p-4">
@@ -198,8 +201,9 @@ require __DIR__ . '/partials/header.php';
             <?php endif; ?>
         </div>
     </div>
+    <?php endif; ?>
 
-    <!-- Frist 2 -->
+    <!-- Frist 2 (Hauptfrist) -->
     <div class="rounded-xl border overflow-hidden <?= $d2Passed ? 'bg-gray-50 border-gray-200' : 'bg-white border-red-200' ?>">
         <div style="height: 4px; background: <?= $d2Passed ? '#9ca3af' : '#dc2626' ?>;"></div>
         <div class="p-4">
@@ -291,12 +295,13 @@ require __DIR__ . '/partials/header.php';
     </div>
     <?php if ($myStats): ?>
     <div class="p-5">
-        <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        <div class="grid grid-cols-2 sm:grid-cols-<?= $d1Enabled ? '4' : '3' ?> gap-4">
             <!-- Teilnahmen -->
             <div class="text-center">
                 <div class="text-2xl font-bold text-gray-900"><?= $myStats['present'] ?></div>
                 <div class="text-xs text-gray-500">Teilnahmen</div>
             </div>
+            <?php if ($d1Enabled && $myDeadline1): ?>
             <!-- Frist 1 -->
             <div class="text-center">
                 <div class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-bold <?= $myDeadline1['class'] ?>">
@@ -304,6 +309,7 @@ require __DIR__ . '/partials/header.php';
                 </div>
                 <div class="text-xs text-gray-500 mt-1"><?= $d1Name ?></div>
             </div>
+            <?php endif; ?>
             <!-- Frist 2 -->
             <div class="text-center">
                 <div class="inline-flex items-center gap-1 px-3 py-1 rounded-lg text-sm font-bold <?= $myDeadline2['class'] ?>">
@@ -451,14 +457,18 @@ require __DIR__ . '/partials/header.php';
                     <th class="px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-red-600" onclick="sortTable(0)">Name ↕</th>
                     <th class="px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-red-600" onclick="sortTable(1)">Teilnahmen ↕</th>
                     <th class="px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-red-600 hidden sm:table-cell" onclick="sortTable(2)">Quote ↕</th>
+                    <?php if ($d1Enabled): ?>
                     <th class="px-4 py-3 text-center font-semibold text-gray-600" title="<?= e($event['deadline_1_name'] ?? 'Frist 1') ?>: <?= format_date($event['deadline_1_date']) ?> (mind. <?= $event['deadline_1_count'] ?>)"><?= e($event['deadline_1_name'] ?? 'Frist 1') ?></th>
+                    <?php endif; ?>
                     <th class="px-4 py-3 text-center font-semibold text-gray-600" title="<?= e($event['deadline_2_name'] ?? 'Frist 2') ?>: <?= format_date($event['deadline_2_date']) ?> (mind. <?= $event['deadline_2_count'] ?>)"><?= e($event['deadline_2_name'] ?? 'Frist 2') ?></th>
-                    <th class="px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-red-600 hidden md:table-cell" onclick="sortTable(5)">Strafkasse ↕</th>
+                    <th class="px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-red-600 hidden md:table-cell" onclick="sortTable(<?= $d1Enabled ? 5 : 4 ?>)">Strafkasse ↕</th>
                 </tr>
             </thead>
             <tbody class="divide-y">
                 <?php foreach ($memberStats as $m):
-                    $d1 = calculate_deadline_status($m['present'], $event['deadline_1_count'], $event['deadline_1_date'], $totalSessions, $totalPast, $remainingBeforeD1);
+                    if ($d1Enabled) {
+                        $d1 = calculate_deadline_status($m['present'], $event['deadline_1_count'], $event['deadline_1_date'], $totalSessions, $totalPast, $remainingBeforeD1);
+                    }
                     $d2 = calculate_deadline_status($m['present'], $event['deadline_2_count'], $event['deadline_2_date'], $totalSessions, $totalPast, $remainingBeforeD2);
                     $penalty = $memberPenalties[$m['id']] ?? 0;
                 ?>
@@ -471,11 +481,13 @@ require __DIR__ . '/partials/header.php';
                     </td>
                     <td class="px-4 py-3 text-center font-semibold" data-sort="<?= $m['present'] ?>"><?= $m['present'] ?></td>
                     <td class="px-4 py-3 text-center hidden sm:table-cell" data-sort="<?= $m['quote'] ?>"><?= $m['quote'] ?>%</td>
+                    <?php if ($d1Enabled): ?>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-block px-2 py-1 rounded-lg text-xs font-semibold <?= $d1['class'] ?>">
                             <?= $d1['icon'] ?> <?= $m['present'] ?>/<?= $event['deadline_1_count'] ?>
                         </span>
                     </td>
+                    <?php endif; ?>
                     <td class="px-4 py-3 text-center">
                         <span class="inline-block px-2 py-1 rounded-lg text-xs font-semibold <?= $d2['class'] ?>">
                             <?= $d2['icon'] ?> <?= $m['present'] ?>/<?= $event['deadline_2_count'] ?>

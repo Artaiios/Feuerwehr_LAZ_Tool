@@ -97,28 +97,28 @@ elseif ($tab === 'members'):
     <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Teilnehmer hinzufügen</h3>
-            <form onsubmit="return addMember(event)">
+            <div>
                 <div class="space-y-3">
                     <input type="text" id="memberName" placeholder="Name" required
                            class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
                     <input type="text" id="memberRole" placeholder="Funktion (optional)"
                            class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500">
-                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                    <button type="button" onclick="addMember()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
                         Hinzufügen
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Bulk-Import</h3>
-            <form onsubmit="return bulkImportMembers(event)">
+            <div>
                 <textarea id="bulkNames" rows="6" placeholder="Ein Name pro Zeile..."
                           class="w-full border rounded-lg p-2 text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 mb-3"></textarea>
-                <button type="submit" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
+                <button type="button" onclick="bulkImportMembers()" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
                     Importieren
                 </button>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -157,7 +157,7 @@ elseif ($tab === 'members'):
 <div id="editMemberModal" class="fixed inset-0 bg-black bg-opacity-50 z-50 hidden flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
         <h3 class="font-bold text-lg mb-4">Teilnehmer bearbeiten</h3>
-        <form onsubmit="return saveMember(event)">
+        <div>
             <input type="hidden" id="editMemberId">
             <div class="space-y-3 mb-4">
                 <input type="text" id="editMemberName" placeholder="Name" required
@@ -170,11 +170,11 @@ elseif ($tab === 'members'):
                 </label>
             </div>
             <div class="flex gap-2">
-                <button type="submit" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">Speichern</button>
+                <button type="button" onclick="saveMember()" class="flex-1 bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700">Speichern</button>
                 <button type="button" onclick="document.getElementById('editMemberModal').classList.add('hidden')"
                         class="flex-1 bg-gray-200 text-gray-700 py-2 rounded-lg font-semibold hover:bg-gray-300">Abbrechen</button>
             </div>
-        </form>
+        </div>
     </div>
 </div>
 
@@ -188,28 +188,28 @@ elseif ($tab === 'sessions'):
     <div class="lg:col-span-1 space-y-6">
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Termin hinzufügen</h3>
-            <form onsubmit="return addSession(event)">
+            <div>
                 <div class="space-y-3">
                     <input type="date" id="sessionDate" required class="w-full border rounded-lg p-2 text-sm">
                     <input type="time" id="sessionTime" required class="w-full border rounded-lg p-2 text-sm">
                     <input type="text" id="sessionComment" placeholder="Kommentar (optional)" class="w-full border rounded-lg p-2 text-sm">
-                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                    <button type="button" onclick="addSession()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
                         Hinzufügen
                     </button>
                 </div>
-            </form>
+            </div>
         </div>
 
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Bulk-Import</h3>
             <p class="text-xs text-gray-400 mb-2">Format: DD.MM.YYYY HH:MM Kommentar</p>
-            <form onsubmit="return bulkImportSessions(event)">
+            <div>
                 <textarea id="bulkSessions" rows="6" placeholder="01.01.2026 18:30 Kommentar..."
                           class="w-full border rounded-lg p-2 text-sm mb-3 font-mono"></textarea>
-                <button type="submit" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
+                <button type="button" onclick="bulkImportSessions()" class="w-full bg-gray-600 text-white py-2 rounded-lg font-semibold hover:bg-gray-700 transition">
                     Importieren
                 </button>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -398,7 +398,7 @@ elseif ($tab === 'penalty_types'):
     <div class="lg:col-span-1">
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Straftyp hinzufügen</h3>
-            <form onsubmit="return addPenaltyType(event)">
+            <div>
                 <div class="space-y-3">
                     <input type="text" id="ptDescription" placeholder="Beschreibung" required class="w-full border rounded-lg p-2 text-sm">
                     <input type="number" id="ptAmount" placeholder="Betrag (€)" step="0.50" min="0.50" required class="w-full border rounded-lg p-2 text-sm">
@@ -410,9 +410,9 @@ elseif ($tab === 'penalty_types'):
                         <label class="text-xs text-gray-500">Sortierung (niedrig = weiter oben):</label>
                         <input type="number" id="ptSortOrder" placeholder="0" value="0" class="w-full border rounded-lg p-2 text-sm mt-1">
                     </div>
-                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Hinzufügen</button>
+                    <button type="button" onclick="addPenaltyType()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Hinzufügen</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -510,7 +510,7 @@ elseif ($tab === 'penalties'):
     <div class="lg:col-span-1">
         <div class="bg-white rounded-xl shadow-sm border p-5">
             <h3 class="font-bold text-gray-800 mb-4">Strafe zuweisen</h3>
-            <form onsubmit="return addPenalty(event)">
+            <div>
                 <div class="space-y-3">
                     <select id="penMember" required class="w-full border rounded-lg p-2 text-sm">
                         <option value="">– Teilnehmer –</option>
@@ -528,9 +528,9 @@ elseif ($tab === 'penalties'):
                     </select>
                     <input type="date" id="penDate" value="<?= date('Y-m-d') ?>" class="w-full border rounded-lg p-2 text-sm">
                     <input type="text" id="penComment" placeholder="Kommentar (optional)" class="w-full border rounded-lg p-2 text-sm">
-                    <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Strafe zuweisen</button>
+                    <button type="button" onclick="addPenalty()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">Strafe zuweisen</button>
                 </div>
-            </form>
+            </div>
         </div>
     </div>
 
@@ -741,11 +741,24 @@ elseif ($tab === 'audit'):
 // Tab: Einstellungen
 // ══════════════════════════════════════════════════════════════
 elseif ($tab === 'settings'):
+    $serverAdminEmail = get_server_config('admin_email', '');
 ?>
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+<!-- Hinweis -->
+<div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-6">
+    <p class="text-blue-700 text-sm">ℹ️ Neue Events/Jahrgänge können nur über den
+    <?php if ($serverAdminEmail): ?>
+        <a href="mailto:<?= e($serverAdminEmail) ?>" class="font-bold underline hover:text-blue-900">Server-Admin</a> (<?= e($serverAdminEmail) ?>)
+    <?php else: ?>
+        <strong>Server-Admin</strong>
+    <?php endif; ?>
+    erstellt werden.</p>
+</div>
+
+<!-- Einstellungen -->
+<div class="max-w-2xl">
     <div class="bg-white rounded-xl shadow-sm border p-5">
         <h3 class="font-bold text-gray-800 mb-4">Event-Einstellungen</h3>
-        <form onsubmit="return updateEvent(event)">
+        <div>
             <div class="space-y-4">
                 <div>
                     <label class="text-xs font-semibold text-gray-500">Name:</label>
@@ -758,23 +771,15 @@ elseif ($tab === 'settings'):
                         <option value="archived" <?= $event['status'] === 'archived' ? 'selected' : '' ?>>Archiviert</option>
                     </select>
                 </div>
-                <hr>
-                <h4 class="font-semibold text-gray-700">Frist 1</h4>
                 <div>
-                    <label class="text-xs text-gray-500">Anzeigename:</label>
-                    <input type="text" id="d1Name" value="<?= e($event['deadline_1_name'] ?? 'Frist 1') ?>" placeholder="z.B. Zwischenziel, Halbzeit..." class="w-full border rounded-lg p-2 text-sm mt-1">
+                    <label class="text-xs font-semibold text-gray-500">Organisationsname (optional):</label>
+                    <input type="text" id="eventOrgName" value="<?= e($event['organization_name'] ?? '') ?>"
+                           placeholder="Leer = globaler Standard (<?= e(get_server_config('organization_name', '')) ?>)"
+                           class="w-full border rounded-lg p-2 text-sm mt-1">
+                    <p class="text-xs text-gray-400 mt-0.5">Überschreibt den globalen Organisationsnamen nur für dieses Event.</p>
                 </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-xs text-gray-500">Datum:</label>
-                        <input type="date" id="d1Date" value="<?= $event['deadline_1_date'] ?>" class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
-                        <input type="number" id="d1Count" value="<?= $event['deadline_1_count'] ?>" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                </div>
-                <h4 class="font-semibold text-gray-700">Frist 2</h4>
+                <hr>
+                <h4 class="font-semibold text-gray-700">Hauptfrist (Frist 2)</h4>
                 <div>
                     <label class="text-xs text-gray-500">Anzeigename:</label>
                     <input type="text" id="d2Name" value="<?= e($event['deadline_2_name'] ?? 'Frist 2') ?>" placeholder="z.B. Abnahme, Finale..." class="w-full border rounded-lg p-2 text-sm mt-1">
@@ -790,6 +795,30 @@ elseif ($tab === 'settings'):
                     </div>
                 </div>
                 <hr>
+                <div>
+                    <label class="flex items-center gap-2 cursor-pointer">
+                        <input type="checkbox" id="d1Enabled" <?= ($event['deadline_1_enabled'] ?? 1) ? 'checked' : '' ?> class="rounded"
+                               onchange="document.getElementById('d1Fields').classList.toggle('hidden', !this.checked)">
+                        <span class="font-semibold text-gray-700">Zwischenziel (Frist 1) aktivieren</span>
+                    </label>
+                </div>
+                <div id="d1Fields" class="<?= ($event['deadline_1_enabled'] ?? 1) ? '' : 'hidden' ?> space-y-3">
+                    <div>
+                        <label class="text-xs text-gray-500">Anzeigename:</label>
+                        <input type="text" id="d1Name" value="<?= e($event['deadline_1_name'] ?? 'Frist 1') ?>" placeholder="z.B. Zwischenziel, Halbzeit..." class="w-full border rounded-lg p-2 text-sm mt-1">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="text-xs text-gray-500">Datum:</label>
+                            <input type="date" id="d1Date" value="<?= $event['deadline_1_date'] ?>" class="w-full border rounded-lg p-2 text-sm mt-1">
+                        </div>
+                        <div>
+                            <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
+                            <input type="number" id="d1Count" value="<?= $event['deadline_1_count'] ?>" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
+                        </div>
+                    </div>
+                </div>
+                <hr>
                 <h4 class="font-semibold text-gray-700">Übungsdauer</h4>
                 <div>
                     <label class="text-xs text-gray-500">Standard-Übungsdauer (Stunden):</label>
@@ -802,7 +831,7 @@ elseif ($tab === 'settings'):
                     <label class="text-xs text-gray-500">Ort (für Wettervorhersage im Dashboard):</label>
                     <div class="flex gap-2 mt-1">
                         <input type="text" id="weatherQuery" placeholder="Ortsname oder PLZ eingeben..."
-                               value="<?= e($event['weather_location'] ?? 'Rutesheim') ?>"
+                               value="<?= e($event['weather_location'] ?? '') ?>"
                                class="flex-1 border rounded-lg p-2 text-sm">
                         <button type="button" onclick="geocodeLocation()"
                                 class="bg-blue-500 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-600 transition shrink-0">
@@ -810,53 +839,20 @@ elseif ($tab === 'settings'):
                         </button>
                     </div>
                     <div id="geocodeResults" class="mt-2 hidden"></div>
-                    <input type="hidden" id="weatherLocation" value="<?= e($event['weather_location'] ?? 'Rutesheim') ?>">
+                    <input type="hidden" id="weatherLocation" value="<?= e($event['weather_location'] ?? '') ?>">
                     <input type="hidden" id="weatherLat" value="<?= (float)($event['weather_lat'] ?? 48.81) ?>">
                     <input type="hidden" id="weatherLng" value="<?= (float)($event['weather_lng'] ?? 8.945) ?>">
                     <p class="text-xs text-gray-400 mt-1" id="weatherCurrentInfo">
-                        Aktuell: <?= e($event['weather_location'] ?? 'Rutesheim') ?>
+                        Aktuell: <?= e($event['weather_location'] ?? '') ?>
                         (<?= number_format((float)($event['weather_lat'] ?? 48.81), 4) ?>°N,
                          <?= number_format((float)($event['weather_lng'] ?? 8.945), 4) ?>°E)
                     </p>
                 </div>
-                <button type="submit" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
+                <button type="button" onclick="updateEvent()" class="w-full bg-red-600 text-white py-2 rounded-lg font-semibold hover:bg-red-700 transition">
                     💾 Speichern
                 </button>
             </div>
-        </form>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border p-5">
-        <h3 class="font-bold text-gray-800 mb-4">Neuen Jahrgang erstellen</h3>
-        <form onsubmit="return createEvent(event)">
-            <div class="space-y-3">
-                <input type="text" id="newEventName" placeholder="z.B. LAZ Silber 2027" required class="w-full border rounded-lg p-2 text-sm">
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-xs text-gray-500">Frist 1 Datum:</label>
-                        <input type="date" id="newD1Date" required class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
-                        <input type="number" id="newD1Count" value="11" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                </div>
-                <div class="grid grid-cols-2 gap-3">
-                    <div>
-                        <label class="text-xs text-gray-500">Frist 2 Datum:</label>
-                        <input type="date" id="newD2Date" required class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                    <div>
-                        <label class="text-xs text-gray-500">Mindest-Teilnahmen:</label>
-                        <input type="number" id="newD2Count" value="20" min="1" class="w-full border rounded-lg p-2 text-sm mt-1">
-                    </div>
-                </div>
-                <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg font-semibold hover:bg-green-700 transition">
-                    ➕ Jahrgang erstellen
-                </button>
-            </div>
-        </form>
-        <div id="newEventResult" class="mt-4 hidden"></div>
+        </div>
     </div>
 </div>
 
@@ -872,23 +868,19 @@ async function adminApi(action, data = {}) {
 }
 
 // ── Teilnehmer ──────────────────────────────────────────────
-async function addMember(e) {
-    e.preventDefault();
+async function addMember() {
     const r = await adminApi('add_member', {
         name: document.getElementById('memberName').value,
         role: document.getElementById('memberRole').value
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
-async function bulkImportMembers(e) {
-    e.preventDefault();
+async function bulkImportMembers() {
     const r = await adminApi('bulk_import_members', {
         names: document.getElementById('bulkNames').value
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
 function editMember(id, name, role, active) {
@@ -899,8 +891,7 @@ function editMember(id, name, role, active) {
     document.getElementById('editMemberModal').classList.remove('hidden');
 }
 
-async function saveMember(e) {
-    e.preventDefault();
+async function saveMember() {
     const r = await adminApi('update_member', {
         member_id: document.getElementById('editMemberId').value,
         name: document.getElementById('editMemberName').value,
@@ -908,28 +899,23 @@ async function saveMember(e) {
         active: document.getElementById('editMemberActive').checked ? 1 : 0,
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
 // ── Termine ─────────────────────────────────────────────────
-async function addSession(e) {
-    e.preventDefault();
+async function addSession() {
     const r = await adminApi('add_session', {
         date: document.getElementById('sessionDate').value,
         time: document.getElementById('sessionTime').value,
         comment: document.getElementById('sessionComment').value,
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
-async function bulkImportSessions(e) {
-    e.preventDefault();
+async function bulkImportSessions() {
     const r = await adminApi('bulk_import_sessions', {
         sessions_data: document.getElementById('bulkSessions').value
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
 async function deleteSession(id) {
@@ -1022,8 +1008,7 @@ async function setAllAttendanceFor(sessionId, status) {
 }
 
 // ── Straftypen ──────────────────────────────────────────────
-async function addPenaltyType(e) {
-    e.preventDefault();
+async function addPenaltyType() {
     const r = await adminApi('add_penalty_type', {
         description: document.getElementById('ptDescription').value,
         amount: document.getElementById('ptAmount').value,
@@ -1031,7 +1016,6 @@ async function addPenaltyType(e) {
         sort_order: document.getElementById('ptSortOrder').value,
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
 async function deletePenaltyType(id) {
@@ -1067,8 +1051,7 @@ async function savePenaltyType(id) {
 }
 
 // ── Strafen ─────────────────────────────────────────────────
-async function addPenalty(e) {
-    e.preventDefault();
+async function addPenalty() {
     const r = await adminApi('add_penalty', {
         member_id: document.getElementById('penMember').value,
         penalty_type_id: document.getElementById('penType').value,
@@ -1076,7 +1059,6 @@ async function addPenalty(e) {
         comment: document.getElementById('penComment').value,
     });
     if (r.success) setTimeout(() => location.reload(), 800);
-    return false;
 }
 
 async function deletePenalty(id) {
@@ -1086,14 +1068,15 @@ async function deletePenalty(id) {
 }
 
 // ── Event ───────────────────────────────────────────────────
-async function updateEvent(e) {
-    e.preventDefault();
+async function updateEvent() {
     await adminApi('update_event', {
         name: document.getElementById('eventName').value,
         status: document.getElementById('eventStatus').value,
+        organization_name: document.getElementById('eventOrgName').value,
         deadline_1_date: document.getElementById('d1Date').value,
         deadline_1_count: document.getElementById('d1Count').value,
         deadline_1_name: document.getElementById('d1Name').value,
+        deadline_1_enabled: document.getElementById('d1Enabled').checked ? '1' : '0',
         deadline_2_date: document.getElementById('d2Date').value,
         deadline_2_count: document.getElementById('d2Count').value,
         deadline_2_name: document.getElementById('d2Name').value,
@@ -1102,7 +1085,6 @@ async function updateEvent(e) {
         weather_lat: document.getElementById('weatherLat').value,
         weather_lng: document.getElementById('weatherLng').value,
     });
-    return false;
 }
 
 // ── Geocoding (Ortssuche) ───────────────────────────────────
@@ -1142,32 +1124,6 @@ function selectWeatherLocation(name, lat, lng) {
         'Ausgewählt: <strong>' + name + '</strong> (' + lat.toFixed(4) + '°N, ' + lng.toFixed(4) + '°E) — zum Übernehmen "Speichern" klicken';
     document.getElementById('weatherCurrentInfo').classList.add('text-blue-600');
     showToast('Standort "' + name + '" ausgewählt. Bitte "Speichern" klicken.', 'info');
-}
-
-async function createEvent(e) {
-    e.preventDefault();
-    const r = await adminApi('create_event', {
-        name: document.getElementById('newEventName').value,
-        deadline_1_date: document.getElementById('newD1Date').value,
-        deadline_1_count: document.getElementById('newD1Count').value,
-        deadline_2_date: document.getElementById('newD2Date').value,
-        deadline_2_count: document.getElementById('newD2Count').value,
-    });
-    if (r.success) {
-        const div = document.getElementById('newEventResult');
-        div.classList.remove('hidden');
-        div.innerHTML = `
-            <div class="bg-green-50 border border-green-200 rounded-lg p-4">
-                <p class="text-green-800 font-semibold mb-2">✅ Jahrgang erstellt!</p>
-                <div class="space-y-2 text-xs">
-                    <div><label class="font-semibold text-green-700">Öffentlich:</label><br>
-                    <input type="text" readonly value="${r.public_url}" class="w-full p-1 border rounded font-mono" onclick="this.select()"></div>
-                    <div><label class="font-semibold text-green-700">Admin:</label><br>
-                    <input type="text" readonly value="${r.admin_url}" class="w-full p-1 border rounded font-mono" onclick="this.select()"></div>
-                </div>
-            </div>`;
-    }
-    return false;
 }
 
 // ── Audit-Filter ────────────────────────────────────────────

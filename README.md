@@ -4,42 +4,102 @@ Webanwendung zur Verwaltung von Leistungsabzeichen-Übungen (LAZ) für Freiwilli
 
 ![PHP](https://img.shields.io/badge/PHP-8.0+-blue) ![MySQL](https://img.shields.io/badge/MySQL-5.7+-orange) ![Tailwind](https://img.shields.io/badge/Tailwind_CSS-3.x-38bdf8) ![License](https://img.shields.io/badge/License-MIT-green)
 
+---
+
+## Architektur
+
+Die Anwendung hat eine zweistufige Verwaltungsstruktur mit klarer Rollentrennung:
+
+```
+┌──────────────────────────────────────────────────────────────────┐
+│                     🔑 SERVER-ADMIN                              │
+│                  admin.php?token={...}                            │
+│                                                                  │
+│  • Events erstellen / löschen          • Globale Einstellungen   │
+│  • Admin-URLs verwalten & vergeben     • Organisationsname       │
+│  • Übersicht aller Events              • Admin E-Mail            │
+│  • Globales Audit-Log                  • Öffentliche Startseite  │
+├──────────┬───────────────────────────────────────┬───────────────┤
+│          │                                       │               │
+│          ▼                                       ▼               │
+│  ┌──────────────────────┐          ┌──────────────────────┐      │
+│  │  🔑 EVENT-ADMIN       │          │  🔑 EVENT-ADMIN       │      │
+│  │  ?event=...&admin=...│          │  ?event=...&admin=...│      │
+│  │                      │          │                      │      │
+│  │  • Teilnehmer        │          │  • Teilnehmer        │      │
+│  │  • Termine           │          │  • Termine           │      │
+│  │  • Anwesenheit       │          │  • Anwesenheit       │      │
+│  │  • Strafenkatalog    │          │  • Strafenkatalog    │      │
+│  │  • Strafen/Strafkasse│          │  • Strafen/Strafkasse│      │
+│  │  • Einstellungen     │          │  • Einstellungen     │      │
+│  │  • Audit-Log         │          │  • Audit-Log         │      │
+│  ├──────────────────────┤          ├──────────────────────┤      │
+│  │  🌐 DASHBOARD         │          │  🌐 DASHBOARD         │      │
+│  │  ?event=...          │          │  ?event=...          │      │
+│  │                      │          │                      │      │
+│  │  • Frist-Countdowns  │          │  • Frist-Countdowns  │      │
+│  │  • Wetter            │          │  • Wetter            │      │
+│  │  • Mein Status       │          │  • Mein Status       │      │
+│  │  • Terminliste       │          │  • Terminliste       │      │
+│  │  • Teilnehmer-Tabelle│          │  • Teilnehmer-Tabelle│      │
+│  ├──────────────────────┤          ├──────────────────────┤      │
+│  │  👤 TEILNEHMER        │          │  👤 TEILNEHMER        │      │
+│  │  ?event=...&member=..│          │  ?event=...&member=..│      │
+│  │                      │          │                      │      │
+│  │  • Fortschritt       │          │  • Fortschritt       │      │
+│  │  • Entschuldigung    │          │  • Entschuldigung    │      │
+│  │  • Strafenliste      │          │  • Strafenliste      │      │
+│  └──────────────────────┘          └──────────────────────┘      │
+│       Event A (z.B. LAZ Bronze)        Event B (z.B. LAZ Silber) │
+└──────────────────────────────────────────────────────────────────┘
+```
+
+**Server-Admin** — Erstellt und verwaltet Events, vergibt Admin-URLs an Verantwortliche.
+
+**Event-Admin** — Verwaltet ein einzelnes Event: Teilnehmer, Termine, Anwesenheit, Strafen. Erhält eine geheime Token-URL vom Server-Admin.
+
+**Dashboard** — Öffentliche Übersicht eines Events. Wird per URL an Teilnehmer weitergegeben.
+
+**Teilnehmer-Detail** — Persönliche Seite pro Teilnehmer mit Fortschritt und Entschuldigungsfunktion.
+
+---
+
 ## Funktionen
 
-### Dashboard
-- Gruppenfortschritt mit Fortschrittsbalken
-- Frist-Countdown-Karten für zwei konfigurierbare Fristen
+### Server-Admin (`admin.php`)
+- Events erstellen mit konfigurierbaren Fristen und optionalem Strafenkatalog-Template
+- Event-URLs (Dashboard + Admin) direkt einsehen und kopieren
+- Globaler Organisationsname (pro Event überschreibbar)
+- Administrator E-Mail (wird im Footer und auf Fehlerseiten angezeigt)
+- Öffentliche Startseite ein-/ausschaltbar
+- Globales Audit-Log über alle Events
+- Events archivieren und löschen
+
+### Event-Admin (`index.php?event=...&admin=...`)
+- Teilnehmer verwalten (einzeln + Bulk-Import)
+- Termine verwalten (einzeln + Bulk-Import)
+- Anwesenheit eintragen (aufklappbare Terminliste, Live-Save pro Klick)
+- Strafenkatalog mit Inline-Bearbeitung und Sortierung
+- Strafen zuweisen, Strafkasse-Statistik mit Diagrammen
+- Event-Einstellungen: Name, Fristen, Übungsdauer, Wetter-Standort
+- Frist 1 (Zwischenziel) optional aktivierbar
+- Audit-Log mit Filtern und CSV-Export
+
+### Dashboard (`index.php?event=...`)
+- Frist-Countdown-Karten (Hauptfrist + optionales Zwischenziel)
 - Nächster Termin mit Wetter-Vorhersage (Open-Meteo API)
-- „Mein Status"-Widget – Teilnehmer wählt seinen Namen, sieht persönliche Ampel + Strafkasse
-- Diagramme: Teilnahmen pro Teilnehmer, Teilnahmen-Entwicklung über Zeit
-- Sortierbare Teilnehmer-Tabelle mit Frist-Ampelsystem (✅ / ⚠️ / ❌)
-- Terminliste mit farblicher Hervorhebung (nächster Termin, vergangene Termine)
+- „Mein Status"-Widget (Cookie-basiert) mit persönlicher Ampel
+- Diagramme: Teilnahmen pro Teilnehmer, Zeitverlauf
+- Sortierbare Teilnehmer-Tabelle mit Frist-Ampelsystem
+- Terminliste mit farblicher Hervorhebung
 
-  <img width="1274" height="899" alt="Bildschirmfoto 2026-03-25 um 00 30 01" src="https://github.com/user-attachments/assets/6037e5f1-a948-43ae-948a-79e87aed77ab" />
-
-### Teilnehmer-Detailseite
-- Persönliche Fortschrittsbalken für beide Fristen
+### Teilnehmer-Detail (`index.php?event=...&member=...`)
+- Fortschrittsbalken für aktive Fristen
 - Donut-Diagramm (Anwesend / Entschuldigt / Fehlend / Ausstehend)
-- Entschuldigungs-Button mit automatischer Kurzfristig-Warnung (< 1h vor Übungsbeginn)
-- Entschuldigung zurückziehen (solange Termin nicht begonnen hat)
+- Entschuldigung setzen und zurückziehen (vor Übungsbeginn)
 - Persönliche Strafenliste
 
-<img width="1269" height="919" alt="Bildschirmfoto 2026-03-25 um 00 36 25" src="https://github.com/user-attachments/assets/302e06e9-0944-4af0-9dfa-75c9cecc7d20" />
-
-### Admin-Bereich
-- Event-Verwaltung (Name, Status, Fristen, Übungsdauer, Wetter-Standort)
-- Teilnehmer verwalten (Einzeln + Bulk-Import)
-- Termine verwalten (Einzeln + Bulk-Import)
-- Anwesenheit eintragen – aufklappbare Terminliste mit Live-Save pro Teilnehmer
-- Strafenkatalog mit Inline-Bearbeitung und Sortierung
-- Strafen zuweisen und verwalten (Soft-Delete)
-- Strafkasse-Statistik (Kreisdiagramm + Balkendiagramm)
-- Audit-Log mit Filtern und CSV-Export
-- Neue Jahrgänge erstellen
-
-<img width="1286" height="799" alt="Bildschirmfoto 2026-03-25 um 00 29 10" src="https://github.com/user-attachments/assets/0f976c85-f57a-4038-9b01-3266a6e9375b" />
-
-<img width="1309" height="682" alt="Bildschirmfoto 2026-03-25 um 00 28 31" src="https://github.com/user-attachments/assets/02997895-a4d8-42aa-aedf-772e1b793455" />
+---
 
 ## Technische Details
 
@@ -51,7 +111,9 @@ Webanwendung zur Verwaltung von Leistungsabzeichen-Übungen (LAZ) für Freiwilli
 | Wetter | Open-Meteo API (kostenlos, kein API-Key) |
 | Hosting | Shared Webspace (z.B. IONOS/1&1), kein Node.js nötig |
 
-**Sicherheit:** PDO Prepared Statements, CSRF-Tokens, XSS-Schutz, Token-basierter Admin-Zugang (kein Login).
+**Sicherheit:** PDO Prepared Statements, CSRF-Tokens, XSS-Schutz, Token-basierter Zugang (kein Login-System).
+
+---
 
 ## Installation
 
@@ -74,10 +136,9 @@ define('DB_PASS', 'dein_passwort');
 
 Rufe `https://deine-domain.de/setup.php` im Browser auf. Das Setup erstellt:
 - Alle Datenbanktabellen
-- Deinen ersten Jahrgang (Name und Fristen wählst du im Formular)
-- Einen Standard-Strafenkatalog
+- Einen Server-Admin-Token
 
-**Speichere die generierten URLs (öffentlich + Admin) sicher ab!**
+**Speichere die Server-Admin URL sicher ab!**
 
 ### 4. Setup sperren
 
@@ -86,44 +147,52 @@ In `config.php` setzen:
 define('SETUP_COMPLETE', true);
 ```
 
-### 5. Loslegen
+### 5. Erstes Event erstellen
 
-Über den Admin-Bereich kannst du nun Teilnehmer, Termine und Strafen verwalten. Die öffentliche URL gibst du an deine Teilnehmer weiter.
+Öffne die Server-Admin URL und erstelle dein erstes Event. Du erhältst zwei URLs:
+- **Öffentlich** — für Teilnehmer (Dashboard)
+- **Admin** — für den Event-Verantwortlichen
+
+---
 
 ## Dateistruktur
 
 ```
-├── config.example.php     # Konfigurations-Template
-├── db.php                 # Datenbankverbindung & Funktionen
-├── setup.php              # Ersteinrichtung
-├── index.php              # Router
-├── api.php                # AJAX-Endpunkte
+├── config.example.php           # Konfigurations-Template
+├── admin.php                    # Server-Admin Router
+├── index.php                    # Event-Router (Dashboard/Member/Admin)
+├── api.php                      # AJAX-Endpunkte
+├── db.php                       # Datenbankverbindung & Funktionen
+├── setup.php                    # Ersteinrichtung
 ├── views/
-│   ├── dashboard.php      # Öffentliches Dashboard
-│   ├── member.php         # Teilnehmer-Detailseite
-│   ├── admin.php          # Admin-Bereich
+│   ├── server_admin.php         # Server-Admin UI
+│   ├── overview.php             # Öffentliche Event-Übersicht
+│   ├── dashboard.php            # Event-Dashboard
+│   ├── member.php               # Teilnehmer-Detailseite
+│   ├── admin.php                # Event-Admin UI
 │   └── partials/
-│       ├── header.php     # Gemeinsamer Header
-│       ├── footer.php     # Gemeinsamer Footer
-│       └── error.php      # Fehlerseite
-├── assets/
-│   └── style.css          # Ergänzende Styles
-├── exports/               # Temporäre CSV-Exporte
-├── .htaccess              # Apache-Konfiguration
-└── CHANGELOG.md           # Versionshistorie
+│       ├── header.php           # Gemeinsamer Header
+│       ├── footer.php           # Gemeinsamer Footer
+│       └── error.php            # Fehlerseite
+├── assets/style.css             # Ergänzende Styles
+├── exports/                     # Temporäre CSV-Exporte
+├── .htaccess                    # Apache-Konfiguration
+└── CHANGELOG.md                 # Versionshistorie
 ```
+
+---
 
 ## URL-Struktur
 
 | Seite | URL |
 |---|---|
-| Dashboard | `index.php?event={public_token}` |
+| Server-Admin | `admin.php?token={server_token}` |
+| Event-Dashboard | `index.php?event={public_token}` |
 | Teilnehmer-Detail | `index.php?event={public_token}&member={id}` |
-| Admin-Bereich | `index.php?event={public_token}&admin={admin_token}` |
+| Event-Admin | `index.php?event={public_token}&admin={admin_token}` |
+| Startseite (optional) | `index.php` |
 
-## Changelog
-
-Siehe [CHANGELOG.md](CHANGELOG.md) für die vollständige Versionshistorie.
+---
 
 ## Lizenz
 

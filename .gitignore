@@ -1,19 +1,10 @@
-# Konfiguration mit echten Zugangsdaten
 config.php
-
-# Migrations-Scripte (nur temporär benötigt)
 update_v*.php
 diagnose.php
-
-# Exports
 exports/*.csv
-
-# System
 .DS_Store
 Thumbs.db
 *.log
-
-# IDE
 .idea/
 .vscode/
 *.swp

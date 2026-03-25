@@ -2,90 +2,112 @@
 
 Alle relevanten Änderungen am LAZ Übungs-Tracker werden in dieser Datei dokumentiert.
 
+## [1.7.0] – 2026-03-25
+
+### Hinzugefügt
+- **Server-Admin:** Neue Verwaltungsebene über `admin.php?token={server_token}` mit eigener grauer Navbar
+  - Events erstellen, URLs einsehen, Events löschen
+  - Globaler Organisationsname (pro Event überschreibbar)
+  - Administrator E-Mail (wird im Footer und auf Fehlerseiten angezeigt)
+  - Öffentliche Startseite optional aktivierbar (zeigt alle aktiven Events)
+  - Globales Audit-Log über alle Events hinweg
+  - Event-Statistiken (Teilnehmer, Termine, Teilnahmen, Strafkasse)
+- **Event-Templates:** Beim Erstellen eines neuen Events kann der Strafenkatalog von einem bestehenden Event kopiert werden
+- **Frist 1 optional:** Zwischenziel (Frist 1) kann pro Event aktiviert/deaktiviert werden – wird überall ausgeblendet wenn deaktiviert
+- **Öffentliche Startseite:** `index.php` ohne Event-Token zeigt optional alle aktiven Events als Kachelübersicht
+- **Admin E-Mail:** Kontaktadresse wird im Footer aller Seiten und auf Fehlerseiten angezeigt
+- Neue Dateien: `admin.php`, `views/server_admin.php`, `views/overview.php`
+- Neue DB-Tabelle: `server_config` (Key-Value-Store für globale Einstellungen)
+- Neue DB-Spalten: `organization_name`, `deadline_1_enabled` (in `events`)
+
+### Geändert
+- **Event-Erstellung:** Nur noch über Server-Admin möglich (nicht mehr über Event-Admin)
+- **Einstellungen (Event-Admin):** Einspaltiges Layout, Hinweis auf Server-Admin mit E-Mail-Link oben
+- **Hauptfrist oben:** Frist 2 (Abnahme/Finale) steht jetzt über dem optionalen Zwischenziel (Frist 1) im Einstellungsformular
+- **Setup neu:** Fragt nur noch Organisationsname und E-Mail ab, erstellt Server-Admin-Token – keine Events/Termine mehr hardcoded
+- **Dynamischer Organisationsname:** Header, Footer, Dashboard-Untertitel, Browser-Tab-Titel – kein hardcoded „Feuerwehr Rutesheim" mehr
+- **Fehlerseite:** Zeigt Admin-E-Mail als Kontaktmöglichkeit
+- **Strafen-Template:** „Handynutzung" gekürzt, Sortierung auf 10er-Stellen (10–70)
+- Alle Formulare nutzen `onclick`-Buttons statt `<form onsubmit>` (behebt async-Probleme)
+
+### Behoben
+- **Kritisch:** `createEvent` kollidierte mit nativer DOM-Methode `document.createEvent()` – umbenannt zu `createNewEvent`
+- **Kritisch:** `<form onsubmit="return asyncFunc(event)">` funktioniert nicht mit async-Funktionen – alle Formulare auf `<div>` + `onclick` umgestellt
+- SQL-Query `get_event_stats_overview()` lieferte `public_token`/`admin_token` nicht mit
+
 ## [1.6.3] – 2026-03-25
 
 ### Geändert
-- **Live-Save bei Anwesenheit:** Jeder Klick auf einen Status-Button speichert sofort nur diesen einen Eintrag – kein Speichern-Button mehr nötig
-- **Keine Überschreibung mehr:** Selbst-Entschuldigungen von Mitgliedern werden beim Speichern durch den Admin nicht mehr versehentlich überschrieben
-- **Entschuldigt-Labels:** Zeigt jetzt „🟡 selbst entsch." oder „🔵 durch Admin" an, damit sichtbar ist, wer den Status gesetzt hat
-- **Kurze Bestätigung:** Nach jedem Live-Save erscheint ein „✓ gespeichert"-Indikator neben dem Teilnehmernamen
+- **Live-Save bei Anwesenheit:** Jeder Klick auf einen Status-Button speichert sofort nur diesen einen Eintrag – kein Speichern-Button mehr
+- **Keine Überschreibung:** Selbst-Entschuldigungen werden beim Admin-Speichern nicht mehr überschrieben
+- **Entschuldigt-Labels:** „🟡 selbst entsch." oder „🔵 durch Admin"
+- Bestätigung „✓ gespeichert" nach jedem Live-Save
 
 ## [1.6.2] – 2026-03-25
 
 ### Geändert
-- **Toggle-Verhalten:** Klick auf den bereits aktiven Status-Button setzt den Status zurück (kein Status gewählt)
-- **API:** Leerer Status-Wert löscht den Attendance-Eintrag aus der Datenbank
+- **Toggle-Verhalten:** Klick auf aktiven Status-Button setzt Status zurück (kein Status gewählt)
+- API: Leerer Status löscht den Attendance-Eintrag aus der Datenbank
 
 ## [1.6.1] – 2026-03-25
 
 ### Hinzugefügt
-- **Anwesenheits-Tab komplett neu:** Aufklappbare Terminliste statt Dropdown-Menü, mit Zählern (✅ 🟡 ❌) pro Termin
-- **Nächster Termin automatisch aufgeklappt**, jeder Termin einzeln auf-/zuklappbar
-- **Wetter-Standort konfigurierbar** unter Admin → Einstellungen (Ortssuche via Open-Meteo Geocoding API)
+- **Anwesenheits-Tab neu:** Aufklappbare Terminliste statt Dropdown, mit Zählern pro Termin
+- **Wetter-Standort konfigurierbar** unter Admin → Einstellungen (Open-Meteo Geocoding)
 - Neue DB-Spalten: `weather_location`, `weather_lat`, `weather_lng`
-
-### Geändert
-- Dashboard nutzt konfigurierte Koordinaten statt hardcoded Rutesheim für Wetterabfrage
 
 ## [1.6.0] – 2026-03-25
 
 ### Hinzugefügt
-- **Entschuldigung zurückziehen:** Teilnehmer können selbst gesetzte Entschuldigungen zurückziehen, solange der Termin nicht begonnen hat
-- **Konfigurierbare Übungsdauer** (Standard: 3h) – bestimmt ab wann ein Termin als beendet gilt
+- **Entschuldigung zurückziehen** (solange Termin nicht begonnen hat)
+- **Konfigurierbare Übungsdauer** (Standard: 3h)
 - Neue Hilfsfunktionen: `is_session_in_future()`, `is_session_ended()`, `get_next_session()`, `can_member_change_excuse()`
-- Neuer API-Endpunkt `withdraw_excuse`
 - Neue DB-Spalte: `session_duration_hours`
 
 ### Geändert
-- Entschuldigen nur noch möglich wenn der Termin-Startzeitpunkt in der Zukunft liegt
-- Vom Admin gesetzte Status (Anwesend/Fehlend) können vom Teilnehmer nicht mehr überschrieben werden
-- „Nächster Termin" wechselt erst nach Ablauf der Übungsdauer zum Folge-Termin
+- Entschuldigen nur vor Übungsbeginn möglich
+- Admin-gesetzte Status nicht vom Teilnehmer überschreibbar
+- „Nächster Termin" wechselt erst nach Ablauf der Übungsdauer
 
 ## [1.5.0] – 2026-03-24
 
 ### Hinzugefügt
-- **Frist-Countdown-Karten** für beide Fristen mit Tagen und verbleibenden Terminen
-- **Wetter-Vorhersage** für den nächsten Termin (Open-Meteo API, kostenlos, 1h Cache)
-- **„Mein Status"-Widget** (Cookie-basiert) – Teilnehmer wählt seinen Namen, sieht persönliche Ampel + Strafkasse
+- Frist-Countdown-Karten für beide Fristen
+- Wetter-Vorhersage für nächsten Termin (Open-Meteo API)
+- „Mein Status"-Widget (Cookie-basiert)
 
 ## [1.4.0] – 2026-03-23
 
 ### Geändert
-- **Upgrade von Tailwind CSS 2.x auf 3.x** (CDN)
-- **Farbcodierte Anwesenheits-Buttons:** Grün (Anwesend), Gelb (Entschuldigt), Rot (Fehlend)
-- Nächster-Termin-Hervorhebung im Dashboard und auf der Teilnehmerseite
+- Upgrade von Tailwind CSS 2.x auf 3.x (CDN)
+- Farbcodierte Anwesenheits-Buttons (Grün/Gelb/Rot)
+- Nächster-Termin-Hervorhebung
 
 ## [1.3.0] – 2026-03-23
 
 ### Behoben
-- **SQL-Bug in Strafkasse-Statistik:** LEFT JOIN Summierung lieferte falsche Werte bei 0 Strafen
-- Kreisdiagramm zeigt jetzt Anzahl der Strafen statt Euro-Betrag
+- SQL-Bug in Strafkasse-Statistik (LEFT JOIN Summierung)
 
 ### Geändert
-- Vergangene Termine werden ausgegraut, nächster Termin farblich hervorgehoben
-- Tabellenkopf visuell stärker von grauen Terminzeilen abgesetzt
+- Kreisdiagramm zeigt Anzahl statt Euro
+- Vergangene Termine ausgegraut
 
 ## [1.2.0] – 2026-03-22
 
 ### Hinzugefügt
-- **Strafenkatalog Inline-Edit:** Straftypen direkt in der Liste bearbeiten (Sortierung, Betrag, Beschreibung, Status)
-- Sichtbares Label für das Sortierfeld im Hinzufügen-Formular
+- Strafenkatalog Inline-Edit
 
 ## [1.1.0] – 2026-03-22
 
 ### Hinzugefügt
-- **Konfigurierbare Frist-Namen:** Anzeigenamen für Frist 1 und Frist 2 im Admin einstellbar
-- Neue DB-Spalten: `deadline_1_name`, `deadline_2_name`
+- Konfigurierbare Frist-Namen (`deadline_1_name`, `deadline_2_name`)
 
 ## [1.0.0] – 2026-03-21
 
 ### Hinzugefügt
-- Vollständige LAZ-Übungsverwaltung mit öffentlichem Dashboard, Teilnehmer-Detailseite und Admin-Bereich
-- Mehrere Jahrgänge/Events mit eigenen URLs und Admin-Tokens
-- Anwesenheitsverwaltung mit Entschuldigungsfunktion und Kurzfristig-Warnung
-- Strafenkatalog und Strafenverwaltung (Soft-Delete)
-- Diagramme (Chart.js): Teilnahmen-Balkendiagramm, Zeitverlauf, Donut-Diagramm
-- Frist-Tracking mit Ampelsystem (Grün/Gelb/Rot)
+- Vollständige LAZ-Übungsverwaltung mit Dashboard, Teilnehmer-Detail und Admin-Bereich
+- Anwesenheitsverwaltung mit Entschuldigungsfunktion
+- Strafenkatalog und Strafenverwaltung
+- Diagramme (Chart.js), Frist-Tracking mit Ampelsystem
 - Audit-Log mit CSV-Export
-- Responsive Design (Mobile-First) mit Tailwind CSS
-- Sicherheit: PDO Prepared Statements, CSRF-Tokens, XSS-Schutz
+- Responsive Design (Tailwind CSS), Sicherheit (PDO, CSRF, XSS)
