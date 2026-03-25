@@ -158,13 +158,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ── Strafenkatalog (Standard-Straftypen) ────────────
 
             $strafen = [
-                ['Zu spät kommen', 5.00, null, 1],
-                ['Unentschuldigtes Fehlen', 10.00, null, 2],
-                ['Versagen von Sprüchen', 1.00, null, 3],
-                ['Rauchen während der Übungsdurchführung', 5.00, null, 4],
-                ['Handynutzung während der Übungsdurchführung (Ausnahme nach Abstimmung)', 5.00, null, 5],
-                ['PSA unvollständig', 2.00, null, 6],
-                ['Kurzfristige Absage (< 1h vor Übungsbeginn)', 2.00, null, 7],
+                ['Zu spät kommen', 5.00, null, 10],
+                ['Unentschuldigtes Fehlen', 10.00, null, 20],
+                ['Versagen von Sprüchen', 1.00, null, 30],
+                ['Rauchen während der Übungsdurchführung', 5.00, null, 40],
+                ['Handynutzung während der Übungsdurchführung', 5.00, null, 50],
+                ['PSA unvollständig', 2.00, null, 60],
+                ['Kurzfristige Absage (< 1h vor Übungsbeginn)', 2.00, null, 70],
             ];
 
             $stmtP = $pdo->prepare("INSERT INTO penalty_types (event_id, description, amount, active_from, sort_order) VALUES (?, ?, ?, ?, ?)");
