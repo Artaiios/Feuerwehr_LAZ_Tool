@@ -183,6 +183,22 @@ define('SETUP_COMPLETE', true);
 
 ---
 
+## Update von einer älteren Version
+
+Die `update.php` im Repo bringt die Datenbank von jeder älteren Version (ab v1.0) auf den aktuellen Stand. Bestehende Daten bleiben dabei vollständig erhalten.
+
+### Vorgehensweise
+
+1. **Backup machen** — Datenbank und Dateien sichern, bevor du irgendetwas überschreibst
+2. **Alle PHP-Dateien per FTP überschreiben** — außer `config.php`, die darf nicht überschrieben werden (enthält deine Zugangsdaten)
+3. **`update.php` im Browser aufrufen** — das Script prüft, welche Datenbankänderungen fehlen, und führt nur die nötigen durch. Kann gefahrlos mehrfach ausgeführt werden.
+4. **`APP_VERSION`** in `config.php` auf die neue Versionsnummer setzen
+5. **`update.php` vom Server löschen** — oder dort belassen, falls du das Repo direkt deployest
+
+Falls du von einer Version vor v1.7 kommst, wird beim ersten Durchlauf ein Server-Admin-Token generiert. Die URL wird nach der Migration angezeigt — sicher abspeichern!
+
+---
+
 ## Dateistruktur
 
 ```
@@ -192,6 +208,7 @@ define('SETUP_COMPLETE', true);
 ├── api.php                      # AJAX-Endpunkte
 ├── db.php                       # Datenbankverbindung & Funktionen
 ├── setup.php                    # Ersteinrichtung
+├── update.php                   # Kumulative Datenbank-Migration
 ├── views/
 │   ├── server_admin.php         # Server-Admin UI
 │   ├── overview.php             # Öffentliche Event-Übersicht
