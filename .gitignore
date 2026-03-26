@@ -1,5 +1,4 @@
 config.php
-update.php
 update_v*.php
 diagnose.php
 exports/*.csv
