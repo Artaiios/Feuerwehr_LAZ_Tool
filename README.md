@@ -10,7 +10,7 @@ Webanwendung zur Verwaltung von Leistungsabzeichen-Übungen (LAZ) für Freiwilli
 http://test.laz.patzeller.com/admin.php?token=fc92485a04f25688fce1e499cba3ed6eef9f24bc7d71e1f9
 
 ---
-<img width="1274" height="899" alt="Bildschirmfoto 2026-03-25 um 00 30 01" src="https://github.com/user-attachments/assets/736cde8e-2363-405a-86d3-056f926db575" />
+<img width="1277" height="1689" alt="Bildschirmfoto 2026-03-26 um 15 02 29" src="https://github.com/user-attachments/assets/39daa290-b0fe-4173-8915-eef78fc8ce96" />
 ---
 
 ## Architektur
